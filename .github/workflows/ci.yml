@@ -131,7 +131,7 @@ jobs:
           set -euo pipefail
           test -x vendor-src/getdp/build/getdp
           vendor-src/getdp/build/getdp --version
-          vendor-src/getdp/build/getdp --info | grep -E "Build options.*Sparskit"
+          vendor-src/getdp/build/getdp --info 2>&1 | grep -E "Build options.*Sparskit"
           cp vendor-src/getdp/test/cube.pro vendor-src/getdp/test/cube.msh .
           ./vendor-src/getdp/build/getdp cube.pro -msh cube.msh -solve EleKin -pos Smoke -v 3
           vint=$(awk '{print $2}' vint.txt)
