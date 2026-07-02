@@ -1,0 +1,26 @@
+// Documentation lint config (markdownlint-cli2), mirroring the host repo's
+// convention. Run locally with: npx markdownlint-cli2
+{
+  "config": {
+    "default": true,
+    // Docs wrap ~85 cols and use wide tables; line length is an intentional style.
+    "MD013": false,
+    // Fenced blocks may be ASCII diagrams with no sensible language tag.
+    "MD040": false,
+    // Table pipe-spacing style is not enforced (tables are hand-aligned).
+    "MD060": false,
+    // Prose lines can start with "+ " as continuations; these rules misread them
+    // as list items. The corpus uses tight lists by style.
+    "MD004": false,
+    "MD032": false
+  },
+  "globs": [
+    "docs/**/*.md",
+    "architecture/**/*.md",
+    "README.md"
+  ],
+  "ignores": [
+    "**/node_modules/**",
+    "**/vendor-src/**"
+  ]
+}
