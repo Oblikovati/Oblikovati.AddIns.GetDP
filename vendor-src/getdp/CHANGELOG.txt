@@ -1,0 +1,224 @@
+3.5.0 (May 13, 2022): generalized Trace operator on non-conforming meshes; new
+Errf function; source code reorganization.
+
+3.4.0 (September 23, 2021): new Min and Max functions on constants (at parse
+time); fixed regression in trees of edges in 2D; added support for non-ASCII
+paths on command line on Windows; GetDP now requires C++11 and CMake 3.3; small
+bug fixes.
+
+3.3.0 (December 21, 2019): improved support for curved elements; added support
+for auto-similar trees of edges (e.g. for sliding surfaces in 3D); update for
+latest Gmsh version.
+
+3.2.0 (July 1, 2019): improved node and edge link constraints search using
+rtree; added support for BF_Edge basis functions on curved elements; small
+fixes.
+
+3.1.0 (April 19, 2019): added support for high-order (curved) Lagrange elements
+(P2, P3 and P4); added support for latest Gmsh version; code refactoring.
+
+3.0.4 (December 9, 2018): allow general groups in Jacobian definitions; fixed
+string parser regression.
+
+3.0.3 (October 18, 2018): new AtGaussPoint PostOperation option; bug fixes.
+
+3.0.2 (September 10, 2018): small compilation fixes.
+
+3.0.1 (September 7, 2018): small bug fixes.
+
+3.0.0 (August 22, 2018): new extrapolation (see SetExtrapolationOrder) in
+time-domain resolutions; new string macros; added support for Gmsh MSH4 file
+format; new file handling operations and ElementTable format in PostOperation;
+added support for curved (2nd order) simplices; enhanced communication of
+post-processing data with ONELAB; many new functions (Atanh, JnSph, YnSph,
+ValueFromTable, ListFromServer, GroupExists, ...); various small bug fixes.
+
+2.11.3 (November 5, 2017): new 'Eig' operator for general eigenvalue problems
+(polynomial, rational); small improvements and bug fixes.
+
+2.11.2 (June 23, 2017): minor build system changes.
+
+2.11.1 (May 13, 2017): small bug fixes and improvements.
+
+2.11.0 (January 3, 2017): small improvements (complex math functions, mutual
+terms, one side of, get/save runtime variables) and bug fixes.
+
+2.10.0 (October 9, 2016): ONELAB 1.3 with usability and performance
+improvements.
+
+2.9.2 (August 21, 2016): small bug fixes.
+
+2.9.1 (August 18, 2016): small improvements (CopySolution[], -cpu) and bug
+fixes.
+
+2.9.0 (July 11, 2016): new ONELAB 1.2 protocol with native support for lists;
+simple C++ and Python API for exchanging (lists of) numbers and strings;
+extended .pro language for the construction of extensible problem definitions
+("Append"); new VolCylShell transformation; new functions (Min, Max, SetDTime,
+...); small fixes.
+
+2.8.0 (March 5, 2016): new Parse[], {Set,Get}{Number,String}[] and
+OnPositiveSideOf commands; added support for lists of strings; various
+improvements and bug fixes for better interactive use with ONELAB.
+
+2.7.0 (November 7, 2015): new Else/ElseIf commands; new timing and memory
+reporting functions.
+
+2.6.1 (July 30, 2015): enhanced Print[] command; minor fixes.
+
+2.6.0 (July 21, 2015): new ability to define and use Macros in .pro files; new
+run-time variables (act as registers, but with user-defined names starting with
+'$') and run-time ONELAB Get/Set functions; new Append*ToFileName PostOperation
+options; new GetResdidual and associated operations; fixes and extended format
+support in MSH file reader; fixed UpdateConstraint for complex-simulated-real
+and multi-harmonic calculations.
+
+2.5.1 (April 18, 2015): enhanced Python[] and DefineFunction[].
+
+2.5.0 (March 12, 2015): added option to embed Octave and Python interpreters;
+extended "Field" functions with gradient; extended string and list handling
+functions; new resolution and postprocessing functions (RenameFile, While, ...);
+extended EigenSolve with eigenvalue filter and high order polynomial EV
+problems; small bug fixes.
+
+2.4.4 (July 9, 2014): better stability, updated onelab API version and inline
+parameter definitions, fixed UpdateConstraint in harmonic case, improved
+performance of multi-harmonic assembly, fixed memory leak in parallel MPI
+version, improved EigenSolve (quadratic EVP with SLEPC, EVP on real matrices),
+new CosineTransform, MPI_Printf, SendMergeFileRequest parser commands, small
+improvements and bug fixes.
+
+2.4.3 (February 7, 2014): new mandatory 'Name' attribute to define onelab
+variables in DefineConstant[] & co; minor bug fixes.
+
+2.4.2 (Septembre 27, 2013): fixed function arguments in nested expressions;
+minor improvements.
+
+2.4.1 (July 16, 2013): minor improvements and bug fixes.
+
+2.4.0 (July 9, 2013): new two-step Init constraints; faster network computation
+(with new -cache); improved Update operation; better cpu/memory reporting; new
+-setnumber, -setstring and -gmshread command line options; accept unicode file
+paths on Windows; small bug fixes.
+
+2.3.1 (May 11, 2013): updated onelab; small bug fixes.
+
+2.3.0 (March 9, 2013): moved build system from autoconf to cmake; new family of
+Field functions to use data imported from Gmsh; improved list handling; general
+code cleanup.
+
+2.2.1 (July 15, 2012): cleaned up nonlinear convergence tests and integrated
+experimental adaptive time loop code; small bug fixes.
+
+2.2.0 (June 19, 2012): new solver interface based on ONELAB; parallel SLEPC
+eigensolvers; cleaned up syntax for groups, moving band and global basis
+functions; new Field[] functions to interpolate post-processing datasets from
+Gmsh; fixed bug in Sur/Lin transformation of 2 forms; fixed bug for periodic
+constraints on high-order edge elements.
+
+2.1.1 (April 12, 2011): default direct solver using MUMPS.
+
+2.1.0 (October 24, 2010): parallel resolution using PETSc solvers; new Gmsh2
+output format; new experimental SLEPc-based eigensolvers; various bug and
+performance fixes (missing face basis functions, slow PETSc assembly with global
+quantities, ...)
+
+2.0.0 (March 16, 2010): general code cleanup (separated interface from kernel
+code; removed various undocumented, unstable and otherwise experimental
+features; moved to C++); updated input file formats; default solvers are now
+based on PETSc; small bug fixes (binary .res read, Newmark -restart).
+
+1.2.1 (March 18, 2006): Small fixes.
+
+1.2.0 (March 10, 2006): Windows versions do not depend on Cygwin anymore; major
+parser cleanup (loops & co).
+
+1.1.2 (September 3, 2005): Small fixes.
+
+1.1.0 (August 21, 2005): New eigensolver based on Arpack (EigenSolve);
+generalized old Lanczos solver to work with GSL+lapack; reworked PETSc
+interface, which now requires PETSc 2.3; documented many previously undocumented
+features (loops, conditionals, strings, link constraints, etc.); various
+improvements and bug fixes.
+
+1.0.1 (February 6, 2005): Small fixes.
+
+1.0.0 (April 24, 2004): New license (GNU GPL); added support for latest Gmsh
+mesh file format; more code cleanups.
+
+0.91: Merged moving band and multi-harmonic code; new loops and conditionals in
+the parser; removed old readline code (just use GNU readline if available);
+upgraded to latest Gmsh post-processing format; various small enhancements and
+bug fixes.
+
+0.89 (March 26, 2003): Code cleanup.
+
+0.88: Integrated FMM code.
+
+0.87: Fixed major performance problem on Windows (matrix assembly and
+post-processing can be up to 3-4 times faster with 0.87 compared to 0.86,
+bringing performance much closer to Unix versions); fixed stack overflow on Mac
+OS X; Re-introduced face basis functions mistakenly removed in 0.86; fixed
+post-processing bug with pyramidal basis functions; new build system based on
+autoconf.
+
+0.86 (January 25, 2003): Updated Gmsh output format; many small bug fixes.
+
+0.85 (January 21, 2002): Upgraded communication interface with Gmsh; new
+ChangeOfValues option in PostOperation; many internal changes.
+
+0.84 (September 6, 2001): New ChangeOfCoordinate option in PostOperation; fixed
+crash in InterpolationAkima; improved interactive postprocessing (-ipos);
+changed syntax of parametric OnGrid ($S, $T -> $A, $B, $C); corrected Skin for
+non simplicial meshes; fixed floating point exception in diagonal matrix
+scaling; many other small fixes and cleanups.
+
+0.83: Fixed bugs in SaveSolutions[] and InitSolution[]; fixed corrupted binary
+post-processing files in the harmonic case for the Gmsh format; output files are
+now created relatively to the input file directory; made solver options
+available on the command line; added optional matrix scaling and changed default
+parameter file name to 'solver.par' (Warning: please check the scaling
+definition in your old SOLVER.PAR files); generalized syntax for lists
+(start:[incr]end -> start:end:incr); updated reference guide; added a new short
+presentation on the web site; OnCut -> OnSection; new functional syntax for
+resolution operations (e.g. Generate X -> Generate[X]); many other small fixes
+and cleanups.
+
+0.82: Added communication socket for interactive use with Gmsh; corrected
+(again) memory problem (leak + seg. fault) in time stepping schemes; corrected
+bug in Update[].
+
+0.81: Generalization of transformation jacobians (spherical and rectangular,
+with optional parameters); changed handling of missing command line arguments;
+enhanced Print OnCut; fixed memory leak for time domain analysis of coupled
+problems; -name option; fixed seg. fault in ILUK.
+
+0.80: Fixed computation of time derivatives on first time step (in
+post-processing); added tolerance in transformation jacobians; fixed parsing of
+DOS files (carriage return problems); automatic memory reallocation in
+ILUD/ILUK.
+
+0.79: Various bug fixes (mainly for the post-processing of intergal quantities);
+automatic treatment of degenerated cases in axisymmetrical problems.
+
+0.78: Various bug fixes.
+
+0.77: Changed syntax for PostOperations (Plot suppressed in favour of Print;
+Plot OnRegion becomes Print OnElementsOf); changed table oriented
+post-processing formats; new binary formats; new error diagnostics.
+
+0.76: Reorganized high order shape functions; optimization of the
+post-processing (faster and less bloated); lots of internal cleanups.
+
+0.74: High order shape functions; lots of small bug fixes.
+
+0.73: Eigen value problems (Lanczos); minor corrections.
+
+0.7: constraint syntax; fourier transform; unary minus correction; complex
+integral quantity correction; separate iteration matrix generation.
+
+0.6: Second order time derivatives; Newton nonlinear scheme; Newmark time
+stepping scheme; global quantity syntax; interactive post-processing; tensors;
+integral quantities; post-processing facilities.
+
+0.3: First distributed version.
