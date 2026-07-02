@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Oblikovati GetDP">
+  <rect width="64" height="64" rx="12" fill="#1f2430"/>
+  <!-- coil cross-section (copper) with magnetic field lines threading it -->
+  <ellipse cx="32" cy="40" rx="14" ry="6" fill="none" stroke="#e08b3d" stroke-width="4"/>
+  <!-- field lines: nested loops through the coil core -->
+  <path d="M32 46 C 18 46 14 30 14 22 C 14 14 22 12 26 18 C 29 22 30 30 30 34" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 46 C 46 46 50 30 50 22 C 50 14 42 12 38 18 C 35 22 34 30 34 34" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 34 V 12 M28 16 l4 -4 4 4" fill="none" stroke="#3ddc97" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

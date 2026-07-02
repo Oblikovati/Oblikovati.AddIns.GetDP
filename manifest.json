@@ -1,0 +1,19 @@
+{
+  "id": "com.oblikovati.getdp",
+  "displayName": "Oblikovati GetDP",
+  "version": "0.1.0",
+  "description": "Integrates GetDP as a general finite-element multiphysics provider with a focus on electromagnetics: volume-meshes the model with physical groups, writes a GetDP .pro problem definition for the study's regions, boundary conditions and excitations, solves with a headless GetDP, and renders field maps and global quantities back into the viewport. Includes parametric sweeps and design optimization over document parameters.",
+  "license": "GPL-2.0-only",
+  "sourceRepo": "https://github.com/Oblikovati/Oblikovati.AddIns.GetDP",
+  "apiCompat": "0.102",
+  "capabilities": [
+    "commands",
+    "documents",
+    "model",
+    "body",
+    "materials",
+    "parameters",
+    "clientGraphics",
+    "interactionGraphics"
+  ]
+}
