@@ -109,3 +109,50 @@ jobs:
         with:
           name: oblikovati-getdp-${{ matrix.os }}
           path: build/oblikovati-getdp.*
+
+  # Build the vendored solver toolchain from source — GetDP 3.5.0 (SPARSKIT + Arpack +
+  # reference LAPACK/BLAS, no PETSc) and gmsh 4.13.1 — and validate each: GetDP solves
+  # the hand-written electrokinetic cube exactly (∫v over the unit cube = V0/2 for the
+  # linear exact solution), and gmsh tetrahedralizes a box STL. This is the
+  # self-contained, no-external-dependency toolchain the add-in ships and runs as
+  # subprocesses (vendor-src/{getdp,gmsh}/NOTICE.md).
+  # Linux is the gating platform for the from-source solver build; the SHIPPED add-in
+  # (the cgo c-shared library) is still validated by the `build` job on all three OSes.
+  solvers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install build toolchain
+        run: sudo apt-get update && sudo apt-get install -y gfortran cmake
+      - name: Build vendored getdp + gmsh
+        run: make build-solvers
+      - name: Validate getdp solves the electrokinetic cube (∫v must equal 0.5, then 1.0 via -setnumber)
+        run: |
+          set -euo pipefail
+          test -x vendor-src/getdp/build/getdp
+          vendor-src/getdp/build/getdp --version
+          vendor-src/getdp/build/getdp --info | grep -E "Build options.*Sparskit"
+          cp vendor-src/getdp/test/cube.pro vendor-src/getdp/test/cube.msh .
+          ./vendor-src/getdp/build/getdp cube.pro -msh cube.msh -solve EleKin -pos Smoke -v 3
+          vint=$(awk '{print $2}' vint.txt)
+          echo "∫v = $vint (expected 0.5)"
+          awk -v v="$vint" 'BEGIN { exit (v > 0.5 - 1e-9 && v < 0.5 + 1e-9) ? 0 : 1 }'
+          ./vendor-src/getdp/build/getdp cube.pro -msh cube.msh -solve EleKin -pos Smoke -setnumber V0 2 -v 3
+          vint2=$(awk '{print $2}' vint.txt)
+          echo "∫v = $vint2 with -setnumber V0 2 (expected 1.0)"
+          awk -v v="$vint2" 'BEGIN { exit (v > 1.0 - 1e-9 && v < 1.0 + 1e-9) ? 0 : 1 }'
+      - name: Validate gmsh tetrahedralizes a box STL
+        run: |
+          set -euo pipefail
+          test -x vendor-src/gmsh/build/gmsh
+          cp vendor-src/gmsh/test/box.stl vendor-src/gmsh/test/box.geo .
+          ./vendor-src/gmsh/build/gmsh box.geo -3 -format msh2 -o box.msh
+          tets=$(awk '/\$Elements/{f=1;next} /\$EndElements/{f=0} f&&$2==11{n++} END{print n+0}' box.msh)
+          echo "second-order tets = $tets"
+          [ "$tets" -ge 1 ] || { echo "FAIL: gmsh produced no tets"; exit 1; }
+      - uses: actions/upload-artifact@v6
+        with:
+          name: solvers-linux
+          path: |
+            vendor-src/getdp/build/getdp
+            vendor-src/gmsh/build/gmsh
