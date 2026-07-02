@@ -44,3 +44,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# GetDP cmake configure writes this doc artifact into the CWD of the build invocation
+cmake_options.texi

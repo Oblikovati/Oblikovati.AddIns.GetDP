@@ -1,0 +1,258 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+
+<head>
+
+<title>GetDP: a General Environment for the Treatment of Discrete
+Problems</title>
+
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="keywords" content="free, finite element, solver, finite elements,
+integral equations, boundary elements, partial differential equations,
+numerical methods, electromagnetism, electromagnetics, thermal,
+thermics, mechanical, mechanics, acoustics, couplings, Gmsh, solveur,
+elements finis, programme gratuit">
+<meta name="viewport" content="width=device-width">
+<meta name="apple-itunes-app" content="app-id=845930897">
+<link href="getdp.css" rel="stylesheet" type="text/css">
+
+<style type="text/css"><!--
+  div.small { font-size:80%; }
+  pre { border: 0; }
+  #banner img { box-shadow: none; margin-bottom: 0.5ex; }
+  @media screen and (min-width: 1200px) {
+    #banner { width: 361px; }
+    #banner img { width: 180px; }
+  }
+--></style>
+
+</head>
+
+<body>
+
+<h1 class="short">GetDP</h1>
+
+<div id="banner"><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Inductor"><img src="gallery/inductor_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Magnetometer"><img src="gallery/magnetometer_screenshot1.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Electric-machines"><img src="gallery/machines_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Magnetodynamics-with-cohomology-conditions"><img src="gallery/indheat_screenshot1.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Waveguides"><img src="gallery/waveguides_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Electromechanical-relay"><img src="gallery/relay_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Bloch-modes-in-periodic-waveguides"><img src="gallery/bloch_periodic_waveguides_screenshot1.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Acoustic-scattering"><img src="gallery/acoustic_scattering_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Magnets"><img src="gallery/magnets_screenshot1.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Domain-decomposition-methods-for-waves"><img src="gallery/ddm_waves_screenshot1.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Antennas"><img src="gallery/antennas_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Thermal-conduction"><img src="gallery/thermal_conduction_screenshot2.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Superconductors"><img src="gallery/superconductors_screenshot1.png" alt=""></a><!--
+--><a href="https://gitlab.onelab.info/doc/models/wikis/Time-reversal"><img src="gallery/time_reversal_screenshot2.png" alt=""></a><!--
+-->
+</div>
+
+<h1>A General Environment for the Treatment of Discrete Problems</h1>
+
+<h4>Patrick Dular and Christophe Geuzaine</h4>
+
+<div id="toc">
+  <a href="#Download">Download</a>
+  | <a href="#Documentation">Documentation</a>
+  | <a href="#Licensing">Licensing</a>
+  | <a href="#Links">Links</a>
+  | <a href="https://www.twitter.com/OnelabModels"><img class="social"
+       src="gallery/twitter.png" alt="twitter"></a>
+</div>
+
+<p>
+GetDP is a free finite element solver using mixed elements to
+discretize <a href="http://en.wikipedia.org/wiki/De_Rham_cohomology">de
+Rham-type complexes</a> in one, two and three dimensions.  The main
+feature of GetDP is the closeness between the input data defining
+discrete problems (written by the user in ASCII data files) and the
+symbolic mathematical expressions of these problems.
+</p>
+
+<p>
+For example, to solve the Poisson equation <code>div(a grad(v)) = f</code> on a
+domain <code>D</code>, an input file ("<code>.pro</code>" file) would contain
+something like this:
+</p>
+<pre>
+  FunctionSpace {
+    { Name H1; Type Form0;
+      BasisFunction {
+        { Name sn; NameOfCoef vn; Function BF_Node; Support D; Entity NodesOf[All]; }
+      }
+    }
+  }
+  Formulation{
+    { Name Poisson; Type FemEquation;
+      Quantity {
+        { Name v; Type Local; NameOfSpace H1; }
+      }
+      Equation {
+        Integral { [ a[] * Dof{d v}, {d v} ] ; In D; Jacobian V; Integration I; }
+        Integral { [ f[], {v} ] ; In D; Jacobian V; Integration I; }
+      }
+    }
+  }
+</pre>
+<p>
+i.e., a direct transcription of the discrete function space and
+<a href="http://en.wikipedia.org/wiki/Weak_formulation">weak
+  formulation</a> of the problem.
+</p>
+<p>
+See GetDP's reference manual for a more
+thorough <a href="doc/texinfo/getdp.html#Overview">overview of GetDP's
+capabilities</a>.
+</p>
+
+<h2><a name="Download"></a>Download</h2>
+
+<p>
+GetDP is distributed under the terms of the <a href="LICENSE.txt">GNU General
+Public License (GPL)</a>:
+</p>
+<ul>
+  <li>
+    <div class="highlight">
+      Current stable release (version 3.5.0, 13 May 2022):
+      <ul>
+        <li>Download GetDP for
+          <a href="bin/Windows/getdp-3.5.0-Windows64c.zip">Windows</a>,
+          <a href="bin/Linux/getdp-3.5.0-Linux64c.tgz">Linux</a> or
+          <a href="bin/macOS/getdp-3.5.0-MacOSXc.tgz">macOS (x86)</a> <a href="#1"><sup>*</sup></a>
+        <li>Download the <a href="src/getdp-3.5.0-source.tgz">source code</a>
+      </ul>
+    </div>
+  <li>Development version:
+    <ul>
+      <li>Download the latest automatic GetDP snapshot for
+        <a href="bin/Windows/getdp-git-Windows64c.zip">Windows</a>,
+        <a href="bin/Linux/getdp-git-Linux64c.tgz">Linux</a>,
+        <a href="bin/macOS/getdp-git-MacOSXc.tgz">macOS (x86)</a> or
+        <a href="bin/macOS/getdp-git-MacOSARMc.tgz">macOS (ARM)</a> <a href="#1"><sup>*</sup></a>
+      <li>Download the latest automatic
+        <a href="src/getdp-git-source.tgz">source code</a> snapshot
+      <li>Access the Git repository: '<code>git clone
+          <a href="https://gitlab.onelab.info/getdp/getdp.git">https://gitlab.onelab.info/getdp/getdp.git</a></code>'
+    </ul>
+    <p>
+    </p>
+  <li>All versions: <a href="bin/">binaries</a> and <a href="src/">sources</a>
+</ul>
+<p>
+If you use GetDP please cite one of the <a href="doc/getdp.bib">references</a>
+in your work (books, articles, reports, etc.).
+</p>
+
+<form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+  <p>
+    <input type="hidden" name="cmd" value="_xclick">
+    <input type="hidden" name="business" value="paypal@onelab.info">
+    <input type="hidden" name="item_name" value="GetDP donation">
+    <input type="hidden" name="no_note" value="1">
+    <input type="hidden" name="currency_code" value="EUR">
+    <input type="hidden" name="tax" value="0">
+    To help fund GetDP development, you can make a
+    <input type="submit" value="PayPal" style="display:inline;">
+    donation.
+  </p>
+</form>
+
+<div class="small">
+  <a name="1"><sup>*</sup></a> Binary releases are compiled
+with <a href="http://www.mcs.anl.gov/petsc/">PETSc</a>, with support for the
+multi-threaded direct sparse linear
+solver <a href="http://graal.ens-lyon.fr/MUMPS">MUMPS</a>, and require Windows
+&ge; 10, Linux with glibc &ge; 2.24, macOS (x86 - Intel processors) &ge; 10.15
+or macOS (ARM - Apple M-series processors) &ge; 12. Distributed memory versions
+for computer clusters (using MPI) should be
+  <a href="https://gitlab.onelab.info/getdp/getdp/wikis/GetDP-compilation">compiled
+  from source</a>.
+</div>
+
+<h2><a name="Documentation"></a>Documentation</h2>
+
+<ul>
+  <li><a href="doc/texinfo/getdp.html">GetDP reference manual (stable release)</a>
+    (also available in
+    <a href="doc/texinfo/getdp.pdf">pdf</a> and in
+    <a href="doc/texinfo/getdp.txt">plain text</a>)
+  <li><a href="dev/doc/texinfo/getdp.html">GetDP reference manual (development version)</a>
+    (also available in
+    <a href="dev/doc/texinfo/getdp.pdf">pdf</a> and in
+    <a href="dev/doc/texinfo/getdp.txt">plain text</a>)
+  <!-- li><a href="doc/slides_getdp.pdf">Short presentation</a -->
+  <li><a href="https://gitlab.onelab.info/doc/tutorials/wikis/home">Step-by-step
+      tutorials</a> and <a href="https://gitlab.onelab.info/doc/models/wikis/home">various
+    examples</a> highlighting physical models and numerical techniques
+  <li><a href="https://gitlab.onelab.info/getdp/getdp">Gitlab development site</a> with a
+    <a href="https://gitlab.onelab.info/getdp/getdp/wikis/home">wiki</a>,
+    <a href="https://gitlab.onelab.info/getdp/getdp/commits/master">time line</a>
+    of changes and the <a href="https://gitlab.onelab.info/getdp/getdp/issues">bug
+      tracking</a> database
+  <li><a href="https://gitlab.onelab.info/getdp/getdp/blob/master/CHANGELOG.txt">Changelog</a>
+  <!-- li>Mailing lists:
+    <ul>
+      <li><a href="http://onelab.info/mailman/listinfo/getdp/">getdp</a> (archived
+        <a href="http://onelab.info/pipermail/getdp/">here</a>) is the public mailing
+        list for GetDP discussions, and is the best place to ask
+        questions (and get answers!)
+      <li><a href="http://onelab.info/mailman/listinfo/getdp-announce/">getdp-announce</a>
+        (archived <a href="http://onelab.info/pipermail/getdp-announce/">here</a>) is a
+        moderated ("read-only") list for announcements about new
+        releases and other GetDP news
+    </ul -->
+</ul>
+
+<p>
+Please report all issues
+on <a href="https://gitlab.onelab.info/getdp/getdp/issues"
+><code>https://gitlab.onelab.info/getdp/getdp/issues</code></a>.
+</p>
+
+<h2><a name="Licensing"></a>Licensing</h2>
+
+<p>
+GetDP is copyright (C) 1997-2022 by P. Dular
+and <a href="http://www.montefiore.ulg.ac.be/~geuzaine">C. Geuzaine</a>,
+<a href="http://www.ulg.ac.be">University of Li&egrave;ge</a> (see the
+<a href="CREDITS.txt">CREDITS</a> file for more information), and is
+distributed under the terms of the <a href="LICENSE.txt">GNU
+General Public License (GPL)</a> (version 2 or later).
+</p>
+
+<p>
+In short, this means that everyone is free to use GetDP and to
+redistribute it on a free basis. GetDP is not in the public domain; it
+is copyrighted and there are restrictions on its distribution (see the
+license and the related <a href="http://www.gnu.org/copyleft/gpl-faq.html">FAQ</a>).
+For example, you cannot integrate this version of GetDP (in full or in
+parts) in any <em>closed-source</em> software you plan to distribute
+(commercially or not). If you want to integrate parts of GetDP into a
+closed-source software, or want to sell a modified closed-source
+version of GetDP, you will need to obtain a different
+license. Please <a href="http://geuz.org">contact us directly</a> for more
+information.
+</p>
+
+<h2><a name="Links"></a>Links</h2>
+
+<ul>
+  <li>GetDP uses either <a href="http://www.mcs.anl.gov/petsc/">PETSc</a> or
+    <a href="http://www-users.cs.umn.edu/%7Esaad/software/SPARSKIT/">SPARSKIT</a>
+    to solve linear systems, and
+    <a href="http://www.caam.rice.edu/software/ARPACK">ARPACK</a> or
+    <a href="https://slepc.upv.es/">SLEPc</a> to solve eigenvalue
+    problems.
+  <li><a href="http://gmsh.info">Gmsh</a> can be used as a graphical front-end for GetDP,
+    through the <a href="http://onelab.info">ONELAB</a> interface.
+  <li>GetDP and Gmsh are bundled in the ONELAB mobile app for
+    <a href="https://play.google.com/store/apps/details?id=org.geuz.onelab">Android</a> and
+    <a href="https://itunes.apple.com/us/app/onelab/id845930897">iOS</a>.
+</ul>
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+// GetDP - Copyright (C) 1997-2022 P. Dular and C. Geuzaine, University of Liege
+//
+// See the LICENSE.txt file for license information. Please report all
+// issues on https://gitlab.onelab.info/getdp/getdp/issues.
+
+#ifndef GETDP_CONFIG_H
+#define GETDP_CONFIG_H
+
+#cmakedefine HAVE_ARPACK
+#cmakedefine HAVE_BLAS
+#cmakedefine HAVE_GMSH
+#cmakedefine HAVE_GSL
+#cmakedefine HAVE_LAPACK
+#cmakedefine HAVE_KERNEL
+#cmakedefine HAVE_MMA
+#cmakedefine HAVE_MPI
+#cmakedefine HAVE_MULTIHARMONIC
+#cmakedefine HAVE_NO_FORTRAN
+#cmakedefine HAVE_NO_INTPTR_T
+#cmakedefine HAVE_NO_SOCKLEN_T
+#cmakedefine HAVE_NO_STDINT_H
+#cmakedefine HAVE_NO_VSNPRINTF
+#cmakedefine HAVE_NR
+#cmakedefine HAVE_NX
+#cmakedefine HAVE_OCTAVE
+#cmakedefine HAVE_PETSC
+#cmakedefine HAVE_PEWE
+#cmakedefine HAVE_PYTHON
+#cmakedefine HAVE_SLEPC
+#cmakedefine HAVE_SMALLFEM
+#cmakedefine HAVE_SPARSKIT
+#cmakedefine HAVE_ZITSOL
+#cmakedefine HAVE_MULTIHARMONIC
+
+#define GETDP_CONFIG_OPTIONS "${GETDP_CONFIG_OPTIONS}"
+
+${GETDP_CONFIG_PRAGMAS}
+
+#endif
