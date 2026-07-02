@@ -48,7 +48,7 @@ $EndElements
 func TestWriteMSHGolden(t *testing.T) {
 	mesh := oneTetMesh()
 	regions := newRegionTable([]string{""}) // unnamed body -> "Body1", tag 1
-	if _, err := regions.BindSurface("inlet", []string{"k"}, fakeGroups(mesh, "k")); err != nil {
+	if _, err := regions.BindSurface("inlet", []string{"k"}, fakeGroups(mesh, "k"), mesh); err != nil {
 		t.Fatalf("bind: %v", err)
 	}
 	var sb strings.Builder

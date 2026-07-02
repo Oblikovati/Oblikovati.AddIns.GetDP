@@ -2,7 +2,10 @@
 
 package getdp
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // RegionTable allocates the physical groups that the written MSH and the generated .pro
 // deck SHARE — it is the single source of the tag numbering on both sides (design spec
@@ -24,11 +27,14 @@ type VolumeRegion struct {
 }
 
 // SurfaceRegion is one physical surface: the boundary facets a constraint spec bound
-// (via FaceGroups) under one tag/name.
+// (via FaceGroups) under one tag/name. AreaModelUnits is the summed facet area in
+// model units² — flux-type writers divide totals (current, heat) by it to get the
+// uniform surface density the deck applies.
 type SurfaceRegion struct {
-	Tag    int
-	Name   string
-	Facets []BoundaryFacet
+	Tag            int
+	Name           string
+	Facets         []BoundaryFacet
+	AreaModelUnits float64
 }
 
 // newRegionTable seeds the table with one physical volume per body, tagged 1..n in body
@@ -47,7 +53,7 @@ func newRegionTable(bodyNames []string) *RegionTable {
 // BindSurface registers the union of the given face keys' bound facets as one physical
 // surface and returns its tag. Surface tags continue after the volume tags, in claim
 // order — deterministic because specs resolve in model order.
-func (t *RegionTable) BindSurface(name string, faceKeys []string, groups *FaceGroups) (int, error) {
+func (t *RegionTable) BindSurface(name string, faceKeys []string, groups *FaceGroups, mesh *TetMesh) (int, error) {
 	var facets []BoundaryFacet
 	for _, key := range faceKeys {
 		fs, ok := groups.Facets[key]
@@ -60,8 +66,27 @@ func (t *RegionTable) BindSurface(name string, faceKeys []string, groups *FaceGr
 		return 0, fmt.Errorf("surface region %q bound no facets (faces: %v)", name, faceKeys)
 	}
 	tag := t.nextTag()
-	t.Surfaces = append(t.Surfaces, SurfaceRegion{Tag: tag, Name: name, Facets: facets})
+	t.Surfaces = append(t.Surfaces, SurfaceRegion{
+		Tag: tag, Name: name, Facets: facets, AreaModelUnits: facetsArea(mesh, facets),
+	})
 	return tag, nil
+}
+
+// facetsArea sums the corner-triangle areas of a facet list (model units²). Second-
+// order facets use their corner triangle — exact for the planar faces flux BCs bind.
+func facetsArea(mesh *TetMesh, facets []BoundaryFacet) float64 {
+	index := mesh.nodeByID()
+	total := 0.0
+	for _, f := range facets {
+		a := nodeXYZ(index[f.Corners[0]])
+		b := nodeXYZ(index[f.Corners[1]])
+		c := nodeXYZ(index[f.Corners[2]])
+		u := [3]float64{b[0] - a[0], b[1] - a[1], b[2] - a[2]}
+		v := [3]float64{c[0] - a[0], c[1] - a[1], c[2] - a[2]}
+		n := [3]float64{u[1]*v[2] - u[2]*v[1], u[2]*v[0] - u[0]*v[2], u[0]*v[1] - u[1]*v[0]}
+		total += 0.5 * math.Sqrt(dot(n, n))
+	}
+	return total
 }
 
 // nextTag returns the first unused physical tag (volumes and surfaces share one space).

@@ -98,7 +98,7 @@ func (s DirichletSpec) Faces() []string      { return s.FaceKeys }
 
 // Resolve claims the spec's physical surface and records the fixed value against it.
 func (s DirichletSpec) Resolve(rc *ResolveContext) error {
-	tag, err := rc.Regions.BindSurface(s.SpecName, s.FaceKeys, rc.Groups)
+	tag, err := rc.Regions.BindSurface(s.SpecName, s.FaceKeys, rc.Groups, rc.Mesh)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (s FluxSpec) Faces() []string      { return s.FaceKeys }
 
 // Resolve claims the spec's physical surface and records the flux against it.
 func (s FluxSpec) Resolve(rc *ResolveContext) error {
-	tag, err := rc.Regions.BindSurface(s.SpecName, s.FaceKeys, rc.Groups)
+	tag, err := rc.Regions.BindSurface(s.SpecName, s.FaceKeys, rc.Groups, rc.Mesh)
 	if err != nil {
 		return err
 	}
