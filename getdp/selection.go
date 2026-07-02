@@ -25,6 +25,12 @@ func decodeSelectedFaces(refs []string) []string {
 	return out
 }
 
+// encodeFaceRef renders a raw face key back into the host's selection encoding —
+// the inverse of decodeFaceRef, used when a panel re-displays stored face picks.
+func encodeFaceRef(rawKey string) string {
+	return faceRefPrefix + base64.RawURLEncoding.EncodeToString([]byte(rawKey))
+}
+
 // decodeFaceRef turns a "face/<url-base64>" selection reference into its raw key, or
 // reports false for a non-face / malformed reference.
 func decodeFaceRef(ref string) (string, bool) {
