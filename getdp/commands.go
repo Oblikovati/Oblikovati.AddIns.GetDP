@@ -36,6 +36,10 @@ const (
 	// Windows panel.
 	ShowTreeCommandID    = "GetDP.ShowTree"
 	ShowMonitorCommandID = "GetDP.ShowMonitor"
+
+	// Demos panel — bundled parametric tutorial documents (issue #21).
+	DemoBusbarCommandID   = "GetDP.Demo.Busbar"
+	DemoHeatSinkCommandID = "GetDP.Demo.HeatSink"
 )
 
 // getdpCommands is the exhaustive command list; RegisterCommands places each per the
@@ -67,6 +71,9 @@ var getdpCommands = []struct{ id, name, tip string }{
 
 	{ShowTreeCommandID, "Study Tree", "Open the GetDP study browser tree."},
 	{ShowMonitorCommandID, "Run Monitor", "Open the GetDP run monitor window."},
+
+	{DemoBusbarCommandID, "Busbar Demo", "Build the parametric busbar demo (electrokinetics) with a configured study."},
+	{DemoHeatSinkCommandID, "Heat Sink Demo", "Build the parametric heat-sink demo (thermal) with a configured study."},
 }
 
 // Setup performs the one-time host-facing initialization: register the ribbon

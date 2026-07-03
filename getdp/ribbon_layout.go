@@ -15,7 +15,7 @@ const RibbonTab = "GetDP"
 
 // Panel names in workflow order (spec §4.1). Results/Optimization/Help panels join
 // with their milestones — unshipped commands are absent, not disabled.
-var getdpPanels = []string{"Study", "Setup", "Mesh", "Solve", "Windows"}
+var getdpPanels = []string{"Study", "Setup", "Mesh", "Solve", "Windows", "Demos"}
 
 // ribbonSpot places one command on a panel of the GetDP tab, with its inline glyph
 // (an embedded icons/<icon>.svg — see iconSVG), button style, control kind and popup
@@ -69,6 +69,10 @@ var getdpRibbonSpots = map[string]ribbonSpot{
 	// Windows.
 	ShowTreeCommandID:    {panel: "Windows", icon: "tree", style: types.SmallIconButton},
 	ShowMonitorCommandID: {panel: "Windows", icon: "monitor", style: types.SmallIconButton},
+
+	// Demos — bundled parametric tutorials (the M10 Help flyout regroups these).
+	DemoBusbarCommandID:   {panel: "Demos", icon: "elekin", style: types.LargeIconButton},
+	DemoHeatSinkCommandID: {panel: "Demos", icon: "thermal", style: types.LargeIconButton},
 }
 
 // commandArgs builds the host command-registration args, placing the command on its

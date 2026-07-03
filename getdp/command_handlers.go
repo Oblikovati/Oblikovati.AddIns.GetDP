@@ -36,6 +36,8 @@ func (e *Engine) dispatchCommand(id string) {
 		go e.addStudy(femmodel.PhysicsThermalTransient)
 	case GenerateMeshCommandID:
 		go e.meshOnly()
+	case DemoBusbarCommandID, DemoHeatSinkCommandID:
+		go e.buildDemo(id)
 	default:
 		e.dispatchEditorCommand(id)
 	}
