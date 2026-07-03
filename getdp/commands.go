@@ -23,6 +23,7 @@ const (
 	AddHeatFluxCommandID    = "GetDP.AddBC.HeatFlux"
 	AddConvectionCommandID  = "GetDP.AddBC.Convection"
 	EditMaterialsCommandID  = "GetDP.EditMaterials"
+	AirRegionCommandID      = "GetDP.AirRegion"
 
 	// Mesh panel.
 	GenerateMeshCommandID = "GetDP.GenerateMesh"
@@ -61,6 +62,7 @@ var getdpCommands = []struct{ id, name, tip string }{
 	{AddHeatFluxCommandID, "Heat Flux", "Prescribe a total heat rate through the selected faces."},
 	{AddConvectionCommandID, "Convection", "Apply a convection film (h, T∞) on the selected faces."},
 	{EditMaterialsCommandID, "Materials", "Edit the active study's region material properties."},
+	{AirRegionCommandID, "Air Region", "Configure the surrounding air domain the field solves in (electrostatics)."},
 
 	{GenerateMeshCommandID, "Generate Mesh", "Volume-mesh the study's bodies and report the element count."},
 	{MeshSettingsCommandID, "Mesh Settings", "Edit the active study's global mesh controls."},

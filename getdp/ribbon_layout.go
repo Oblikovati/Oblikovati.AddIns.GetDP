@@ -56,6 +56,7 @@ var getdpRibbonSpots = map[string]ribbonSpot{
 	AddHeatFluxCommandID:    {icon: "thermal", style: types.SmallIconButton},
 	AddConvectionCommandID:  {icon: "thermal", style: types.SmallIconButton},
 	EditMaterialsCommandID:  {panel: "Setup", icon: "materials", style: types.SmallIconButton},
+	AirRegionCommandID:      {panel: "Setup", icon: "airregion", style: types.SmallIconButton},
 
 	// Mesh.
 	GenerateMeshCommandID: {panel: "Mesh", icon: "meshgen", style: types.LargeIconButton},

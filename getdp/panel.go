@@ -18,6 +18,7 @@ const (
 	tpStudyID      = "com.oblikovati.getdp.tp.study"      // TP-1
 	tpRegionID     = "com.oblikovati.getdp.tp.region"     // TP-2
 	tpConstraintID = "com.oblikovati.getdp.tp.constraint" // TP-4/TP-6 (kind-specific rows)
+	tpAirID        = "com.oblikovati.getdp.tp.air"        // TP-3
 	tpMeshID       = "com.oblikovati.getdp.tp.mesh"       // TP-11
 	tpSolverID     = "com.oblikovati.getdp.tp.solver"     // TP-12
 )
@@ -34,6 +35,7 @@ type openPanel struct {
 	mesh       femmodel.MeshObject
 	region     femmodel.RegionObject
 	constraint femmodel.ConstraintObject
+	air        femmodel.AirRegion
 }
 
 // showPanel stores the draft and shows its panel (host call OUTSIDE the lock).
@@ -168,6 +170,98 @@ func faceRows(keys []string) []wire.PanelReferenceRow {
 		rows[i] = wire.PanelReferenceRow{Ref: encodeFaceRef(k), Label: fmt.Sprintf("Face %d", i+1)}
 	}
 	return rows
+}
+
+// openAirPanel opens TP-3 for a study: the surrounding air domain the field solves in.
+func (e *Engine) openAirPanel(studyID string) {
+	s, err := e.studyByID(studyID)
+	if err != nil {
+		e.reportStatus("GetDP: " + err.Error())
+		return
+	}
+	p := &openPanel{id: tpAirID, studyID: studyID, air: s.Solver.Air}
+	e.showPanel(p, wire.TaskPanelSpec{
+		ID: tpAirID, Title: "Air Region — " + s.Name(), Controls: airControls(p),
+	})
+}
+
+// reshowAirPanel re-renders TP-3 from the current draft — used when a mode or truncation
+// toggle changes which controls apply (spec §4.3: the family editor re-renders in place).
+// Runs off the session goroutine because Show is a host call.
+func (e *Engine) reshowAirPanel() {
+	e.mu.Lock()
+	p := e.panel
+	if p == nil || p.id != tpAirID {
+		e.mu.Unlock()
+		return
+	}
+	spec := wire.TaskPanelSpec{ID: tpAirID, Title: "Air Region", Controls: airControls(p)}
+	e.mu.Unlock()
+	if _, err := e.api.TaskPanels().Show(spec); err != nil {
+		e.reportStatus("GetDP: air panel: " + err.Error())
+	}
+}
+
+// airControls renders TP-3 from the draft: a mode dropdown, then the mode-specific controls
+// (an automatic box exposes its padding and far-boundary truncation; None and Manual show a
+// hint). The trailing hint states what the chosen mode does so the domain is never implicit.
+func airControls(p *openPanel) []wire.PanelControlSpec {
+	cs := []wire.PanelControlSpec{
+		client.PanelDropdown("mode", "Air region", airModeOptions(), airModeLabel(p.air.Mode)),
+	}
+	switch p.air.Mode {
+	case femmodel.AirAutomaticBox:
+		return append(cs, autoBoxControls(p.air)...)
+	case femmodel.AirManualBodies:
+		return append(cs, client.PanelLabel("hint",
+			"Manual air bodies activate with multi-body air support; use Automatic box for a single-part study."))
+	default: // AirNone
+		return append(cs, client.PanelLabel("hint",
+			"No air region — the field is confined to the part (conduction/thermal, or an electrostatics problem with every boundary fixed)."))
+	}
+}
+
+// autoBoxControls are the automatic-padded-box rows: the padding slider, the infinite-shell
+// toggle, and (when the shell is on) its two radii.
+func autoBoxControls(air femmodel.AirRegion) []wire.PanelControlSpec {
+	shell := air.Truncation == femmodel.TruncationInfiniteShell
+	cs := []wire.PanelControlSpec{
+		client.PanelSlider("padding", "Box padding (× part size)", air.PaddingFactor, 1, 10, 0.5),
+		client.PanelCheckBox("infshell", "Infinite-shell truncation (open boundary)", shell),
+	}
+	if shell {
+		cs = append(cs,
+			client.PanelValueEditor("rint", "Shell inner radius (model units)", formatNum(air.ShellRint)),
+			client.PanelValueEditor("rext", "Shell outer radius (model units)", formatNum(air.ShellRext)))
+	}
+	return append(cs, client.PanelLabel("hint",
+		"A padded air box is generated around the part; the field solves in the part and the surrounding air."))
+}
+
+// airModeOptions / airModeLabel / parseAirMode map the AirMode enum to the dropdown's human
+// labels (the label is what the host round-trips as the control value).
+func airModeOptions() []string { return []string{"Automatic box", "Manual bodies", "None"} }
+
+func airModeLabel(m femmodel.AirMode) string {
+	switch m {
+	case femmodel.AirAutomaticBox:
+		return "Automatic box"
+	case femmodel.AirManualBodies:
+		return "Manual bodies"
+	default:
+		return "None"
+	}
+}
+
+func parseAirMode(label string) femmodel.AirMode {
+	switch label {
+	case "Automatic box":
+		return femmodel.AirAutomaticBox
+	case "Manual bodies":
+		return femmodel.AirManualBodies
+	default:
+		return femmodel.AirNone
+	}
 }
 
 // openMeshPanel opens TP-11 for a study.

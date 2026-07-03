@@ -66,6 +66,8 @@ func (e *Engine) dispatchWindowCommand(id string) {
 		go e.openStudyPanel(e.activeStudyID())
 	case EditRegionsCommandID, EditMaterialsCommandID:
 		go e.openFirstRegionPanel()
+	case AirRegionCommandID:
+		go e.openAirPanel(e.activeStudyID())
 	case MeshSettingsCommandID:
 		go e.openMeshPanel(e.activeStudyID())
 	case SolverSettingsCommandID:
