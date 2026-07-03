@@ -214,7 +214,7 @@ func (e *Engine) collectResults(in runInputs, staged *stagedStudy) (*StudyResult
 		if err != nil {
 			return nil, err
 		}
-		if err := e.renderScalarField(staged.mesh, nodal, lo, hi); err != nil {
+		if err := e.renderScalarField(staged.mesh, nodal, lo, hi, in.needsAir()); err != nil {
 			return nil, err
 		}
 		res.FieldLabel, res.FieldUnit, res.FieldMin, res.FieldMax = field.Label, field.Unit, lo, hi
