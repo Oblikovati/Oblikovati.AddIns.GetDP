@@ -16,7 +16,7 @@ func TestRegionTableAllocatesSequentialTags(t *testing.T) {
 	if got, _ := regions.VolumeTag(1); got != 2 {
 		t.Errorf("body 1 tag = %d, want 2", got)
 	}
-	tag, err := regions.BindSurface("electrode", []string{"k"}, fakeGroups(mesh, "k"))
+	tag, err := regions.BindSurface("electrode", []string{"k"}, fakeGroups(mesh, "k"), mesh)
 	if err != nil {
 		t.Fatalf("bind: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestRegionTableAllocatesSequentialTags(t *testing.T) {
 
 func TestRegionTableBindSurfaceUnknownFace(t *testing.T) {
 	regions := newRegionTable([]string{"A"})
-	_, err := regions.BindSurface("bc", []string{"missing"}, fakeGroups(oneTetMesh()))
+	_, err := regions.BindSurface("bc", []string{"missing"}, fakeGroups(oneTetMesh()), oneTetMesh())
 	if err == nil || !strings.Contains(err.Error(), "missing") {
 		t.Errorf("err = %v, want unknown-face failure naming the key", err)
 	}

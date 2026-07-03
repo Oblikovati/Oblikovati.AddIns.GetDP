@@ -3,13 +3,15 @@
 package getdp
 
 import (
-	"encoding/base64"
+	"context"
 	"encoding/json"
+	"math"
 	"strings"
 	"sync"
 	"testing"
 
 	"oblikovati.org/api/wire"
+	"oblikovati.org/getdp/getdp/femmodel"
 )
 
 // boxHost is a fake host serving one box body and a two-face selection (an inlet face
@@ -96,12 +98,6 @@ func (b *boxHost) faceFacets(req []byte) ([]byte, error) {
 	return json.Marshal(wire.FacetSetResult{VertexCoordinates: coords, VertexIndices: idx})
 }
 
-// encodeFaceRef mirrors the host's selection encoding: "face/" + url-base64(raw key).
-// The engine-side decoder (selection.go) lands with the M2 mesh pipeline.
-func encodeFaceRef(rawKey string) string {
-	return "face/" + base64.RawURLEncoding.EncodeToString([]byte(rawKey))
-}
-
 // appendQuad appends a quad's two triangles to the coordinate/index soup.
 func appendQuad(coords []float64, idx []int, v [8][3]float64, q [4]int) ([]float64, []int) {
 	base := len(coords) / 3
@@ -146,5 +142,83 @@ func TestBoxHostSelectionEncoding(t *testing.T) {
 		if !strings.HasPrefix(ref, "face/") {
 			t.Errorf("ref %q missing face/ prefix", ref)
 		}
+	}
+}
+
+// TestRunStudyOnHostDrivesFullPipeline runs the whole host-facing flow against the
+// real vendored solvers: femmodel study + BCs → selection-bound faces → gmsh volume
+// mesh → physical groups → generated .pro → GetDP solve → .pos parse → flood-plot
+// render. It asserts the physical result (busbar current) and that the geometry and
+// graphics surfaces were all exercised.
+func TestRunStudyOnHostDrivesFullPipeline(t *testing.T) {
+	bins := requireSolver(t)
+	t.Setenv("OBK_GETDP_BIN", bins.getdp)
+	t.Setenv("OBK_GMSH_BIN", bins.gmsh)
+	b := newBoxHost()
+	e := NewEngine(b)
+	e.withAnalysis(func(a *femmodel.Analysis) {
+		s := a.Active()
+		mustAddBC(t, s, femmodel.ConstraintObject{Kind: femmodel.KindVoltage, Name: "V+",
+			Faces: []string{inletFaceKey}, Value: 1})
+		mustAddBC(t, s, femmodel.ConstraintObject{Kind: femmodel.KindVoltage, Name: "GND",
+			Faces: []string{outletFaceKey}, Value: 0})
+		s.Mesh.SizeModelUnits = 0.8
+	})
+
+	res, err := e.RunStudyOnHost(context.Background())
+	if err != nil {
+		t.Fatalf("RunStudyOnHost: %v", err)
+	}
+	if res.Elements == 0 {
+		t.Error("no elements meshed")
+	}
+	if res.FieldLabel != "electric potential" || res.FieldMax <= res.FieldMin {
+		t.Errorf("field = %q %g…%g, want a potential gradient", res.FieldLabel, res.FieldMin, res.FieldMax)
+	}
+	assertBusbarCurrent(t, res)
+	for _, m := range []string{
+		wire.MethodBodyList,
+		wire.MethodBodyCalculateFacets,
+		wire.MethodFaceCalculateFacets,
+		wire.MethodClientGraphicsRegisterMapper,
+		wire.MethodClientGraphicsSet,
+	} {
+		if !b.saw(m) {
+			t.Errorf("study never called %q", m)
+		}
+	}
+}
+
+// assertBusbarCurrent checks the reported electrode current against R = L/(σA) for
+// the default copper region on the 20×1×1 cm boxHost bar.
+func assertBusbarCurrent(t *testing.T, res *StudyResult) {
+	t.Helper()
+	wantI := 1.0 / (0.2 / (5.96e7 * 1e-4))
+	for _, s := range res.Scalars {
+		if strings.Contains(s.Label, "electrode current") {
+			if rel := math.Abs(math.Abs(s.Value)-wantI) / wantI; rel > 0.01 {
+				t.Errorf("electrode current = %g A, want |I| ≈ %g A (rel %g)", s.Value, wantI, rel)
+			}
+			return
+		}
+	}
+	t.Errorf("no electrode-current scalar in %+v", res.Scalars)
+}
+
+// TestGenerateMeshCommandReportsCounts drives the mesh-only path end to end.
+func TestGenerateMeshCommandReportsCounts(t *testing.T) {
+	bins := requireSolver(t)
+	t.Setenv("OBK_GETDP_BIN", bins.getdp)
+	t.Setenv("OBK_GMSH_BIN", bins.gmsh)
+	b := newBoxHost()
+	e := NewEngine(b)
+	e.Notify(commandStartedEvent(GenerateMeshCommandID))
+	waitFor(t, func() bool { return b.saw(wire.MethodStatusSetText) })
+}
+
+func mustAddBC(t *testing.T, s *femmodel.Study, c femmodel.ConstraintObject) {
+	t.Helper()
+	if _, err := s.AddConstraint(c); err != nil {
+		t.Fatalf("add constraint: %v", err)
 	}
 }

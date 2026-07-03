@@ -3,6 +3,7 @@
 package getdp
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"sync"
@@ -105,10 +106,13 @@ func TestRegisteredCommandsLandOnGetDPTab(t *testing.T) {
 	}
 }
 
-func TestRunStudyOnHostErrorsWhilePipelineUnimplemented(t *testing.T) {
-	// With no pipeline yet, the study must fail loudly rather than silently doing nothing.
-	if _, err := NewEngine(&recordingHost{}).RunStudyOnHost(); err == nil {
-		t.Fatal("RunStudyOnHost should error while the pipeline is unimplemented")
+func TestRunStudyOnHostErrorsWithoutSolver(t *testing.T) {
+	// With no solver binaries reachable, the study must fail loudly (naming the make
+	// target) rather than silently doing nothing.
+	t.Setenv("OBK_GETDP_BIN", "/nowhere")
+	t.Setenv("OBK_GMSH_BIN", "/nowhere")
+	if _, err := NewEngine(&recordingHost{}).RunStudyOnHost(context.Background()); err == nil {
+		t.Fatal("RunStudyOnHost should error when the solvers are unavailable")
 	}
 }
 
@@ -158,7 +162,7 @@ func TestNotifyPanelAndBrowserEventsAreSafe(t *testing.T) {
 func TestRunAndReportRecoversPanic(t *testing.T) {
 	h := &recordingHost{}
 	e := NewEngine(h)
-	e.runStudy = func() (*StudyResult, error) { panic("mesh exploded") }
+	e.runStudy = func(context.Context) (*StudyResult, error) { panic("mesh exploded") }
 	e.Notify(commandStartedEvent(RunStudyCommandID))
 	waitIdle(e)
 	if got := h.lastStatus(); !strings.Contains(got, "GetDP study crashed") || !strings.Contains(got, "mesh exploded") {
@@ -173,10 +177,10 @@ func TestLaunchStudyCoalescesOverlappingTriggers(t *testing.T) {
 	e := NewEngine(h)
 	release := make(chan struct{})
 	started := make(chan struct{})
-	e.runStudy = func() (*StudyResult, error) {
+	e.runStudy = func(context.Context) (*StudyResult, error) {
 		close(started)
 		<-release
-		return &StudyResult{SummaryText: "done"}, nil
+		return &StudyResult{}, nil
 	}
 	e.launchStudy()
 	<-started
@@ -203,6 +207,20 @@ func waitIdle(e *Engine) {
 		}
 		time.Sleep(time.Millisecond)
 	}
+}
+
+// waitFor polls cond until it returns true or 2 s elapse, at which point it fails the
+// test. Used when an async goroutine drives host calls we cannot guard on e.running.
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("waitFor: condition not satisfied within 2 s")
 }
 
 // commandStartedEvent builds the bytes for a command.started event carrying the given command id.
