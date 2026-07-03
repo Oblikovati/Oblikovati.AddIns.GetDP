@@ -72,8 +72,9 @@ var getdpRibbonSpots = map[string]ribbonSpot{
 	ShowMonitorCommandID: {panel: "Windows", icon: "monitor", style: types.SmallIconButton},
 
 	// Demos — bundled parametric tutorials (the M10 Help flyout regroups these).
-	DemoBusbarCommandID:   {panel: "Demos", icon: "elekin", style: types.LargeIconButton},
-	DemoHeatSinkCommandID: {panel: "Demos", icon: "thermal", style: types.LargeIconButton},
+	DemoBusbarCommandID:    {panel: "Demos", icon: "elekin", style: types.LargeIconButton},
+	DemoHeatSinkCommandID:  {panel: "Demos", icon: "thermal", style: types.LargeIconButton},
+	DemoCapacitorCommandID: {panel: "Demos", icon: "airregion", style: types.LargeIconButton},
 }
 
 // commandArgs builds the host command-registration args, placing the command on its

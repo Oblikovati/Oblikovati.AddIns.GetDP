@@ -39,8 +39,9 @@ const (
 	ShowMonitorCommandID = "GetDP.ShowMonitor"
 
 	// Demos panel — bundled parametric tutorial documents (issue #21).
-	DemoBusbarCommandID   = "GetDP.Demo.Busbar"
-	DemoHeatSinkCommandID = "GetDP.Demo.HeatSink"
+	DemoBusbarCommandID    = "GetDP.Demo.Busbar"
+	DemoHeatSinkCommandID  = "GetDP.Demo.HeatSink"
+	DemoCapacitorCommandID = "GetDP.Demo.Capacitor"
 )
 
 // getdpCommands is the exhaustive command list; RegisterCommands places each per the
@@ -76,6 +77,7 @@ var getdpCommands = []struct{ id, name, tip string }{
 
 	{DemoBusbarCommandID, "Busbar Demo", "Build the parametric busbar demo (electrokinetics) with a configured study."},
 	{DemoHeatSinkCommandID, "Heat Sink Demo", "Build the parametric heat-sink demo (thermal) with a configured study."},
+	{DemoCapacitorCommandID, "Capacitor Demo", "Build the parametric parallel-plate capacitor demo (electrostatics) with a configured study."},
 }
 
 // Setup performs the one-time host-facing initialization: register the ribbon

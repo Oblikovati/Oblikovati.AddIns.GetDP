@@ -175,6 +175,41 @@ func TestBusbarDemoBuildsAndConfiguresStudy(t *testing.T) {
 	}
 }
 
+// TestCapacitorDemoBuildsElectrostaticsStudy drives the capacitor demo through the engine over
+// the fake host: a document, the parametric slab (2 params, one rectangle, one extrude), the
+// two plate probes, and an electrostatics study whose part region took the dielectric εr and
+// whose automatic air box took the demo's tight padding.
+func TestCapacitorDemoBuildsElectrostaticsStudy(t *testing.T) {
+	h := newDemoHost()
+	e := NewEngine(h)
+	name, err := e.buildDemoOnHost(demoRegistry[DemoCapacitorCommandID])
+	if err != nil {
+		t.Fatalf("buildDemoOnHost: %v", err)
+	}
+	if want := len(demos.CapacitorParams()); h.saw(wire.MethodParametersAdd) != want {
+		t.Errorf("parameters published = %d, want %d", h.saw(wire.MethodParametersAdd), want)
+	}
+	if got := h.saw(wire.MethodSketchAddEntity); got != 4 {
+		t.Errorf("sketch lines = %d, want 4 (one plate rectangle)", got)
+	}
+	if h.extrudes != 1 {
+		t.Errorf("extrudes = %d, want 1 (dielectric slab)", h.extrudes)
+	}
+	if got := h.saw(wire.MethodBodyLocateUsingPoint); got != 2 {
+		t.Errorf("face probes = %d, want 2 plates", got)
+	}
+	assertActiveStudy(t, e, name, femmodel.PhysicsElectrostatics, 2)
+	e.withAnalysis(func(a *femmodel.Analysis) {
+		s := a.Active()
+		if regs := s.Regions(); len(regs) == 0 || regs[0].Material.Epsilon != 4 {
+			t.Errorf("part region εr = %+v, want the demo dielectric 4", s.Regions())
+		}
+		if s.Solver.Air.Mode != femmodel.AirAutomaticBox || s.Solver.Air.PaddingFactor != 1.5 {
+			t.Errorf("air = %+v, want automatic box padding 1.5", s.Solver.Air)
+		}
+	})
+}
+
 // TestHeatSinkDemoBuildsFinnedStudy drives the heat-sink demo and asserts its richer host
 // path: a base plus a fin extrude, a linear fin pattern, and a steady-thermal study with a
 // temperature BC plus one convection BC per fin.
