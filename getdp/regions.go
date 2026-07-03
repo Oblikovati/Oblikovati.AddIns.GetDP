@@ -56,6 +56,13 @@ func (t *RegionTable) addAirVolume() {
 	t.Volumes = append(t.Volumes, VolumeRegion{Tag: t.nextTag(), Name: "Air", Body: airBodyIndex})
 }
 
+// addShellVolume registers the infinite-shell tets as one more physical volume (body
+// shellBodyIndex) so the deck maps that region to the VolSphShell Jacobian and the MSH tags its
+// tets. Registered after the air volume, so its tag follows Part and Air (#25).
+func (t *RegionTable) addShellVolume() {
+	t.Volumes = append(t.Volumes, VolumeRegion{Tag: t.nextTag(), Name: "Shell", Body: shellBodyIndex})
+}
+
 // BindOuterBoundary registers the air box's outer facets (mesh physical tag outerBoundaryTag)
 // as one physical surface and returns its tag — the far-field boundary the electrostatic
 // solve pins to zero. Unlike BindSurface it binds directly from the mesh, not a host face:

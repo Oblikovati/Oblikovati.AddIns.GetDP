@@ -38,7 +38,7 @@ func (w ElectrostaticsWriter) BuildDeck(in DeckInput) (*pro.Deck, DeckOutputs, e
 		Groups:         regionGroups(in.Regions),
 		Functions:      epsFunctions(in),
 		Constraints:    []pro.Constraint{dirichletConstraint("SetV", volts)},
-		Jacobians:      pro.StandardJacobians(),
+		Jacobians:      jacobiansFor(in),
 		Integrations:   pro.StandardIntegration(in.Order),
 		FunctionSpaces: []pro.FunctionSpace{pro.NodalSpace("Hgrad_v", "VolAll", "SetV")},
 		Formulations:   []pro.Formulation{w.formulation()},

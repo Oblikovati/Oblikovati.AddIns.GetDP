@@ -58,7 +58,10 @@ func surfaceRenderData(mesh *TetMesh, field map[int]float64, hideOuter bool) ([]
 	var coords, scalars []float64
 	var indices []int
 	for _, bf := range mesh.Surface {
-		if hideOuter && bf.Physical == outerBoundaryTag {
+		// For air studies, show only the part surface: drop the far-field boundary (padded box
+		// or Rext sphere) AND, for infinite-shell meshes, the internal near-air/shell interface
+		// sphere — both would otherwise wrap the part in a solid ball of colour (#25, #26).
+		if hideOuter && (bf.Physical == outerBoundaryTag || bf.Physical == shellInnerTag) {
 			continue
 		}
 		for _, nid := range bf.Corners {
