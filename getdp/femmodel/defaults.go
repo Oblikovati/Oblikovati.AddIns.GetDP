@@ -26,6 +26,10 @@ func defaultMaterial(kind PhysicsKind) MaterialProps {
 		// A unit-permittivity dielectric by default (the demo raises εr); the generated
 		// air region is vacuum (εr = 1) too.
 		return MaterialProps{Name: "Dielectric", Epsilon: 1}
+	case PhysicsMagnetostatics:
+		// Non-magnetic by default (copper coil / air, μr = 1); the demo raises μr for an
+		// iron core.
+		return MaterialProps{Name: "Copper", Sigma: 5.96e7, Mu: 1}
 	default:
 		return MaterialProps{Name: "Aluminium", Sigma: 3.5e7, K: 205, Rho: 2700, Cp: 900}
 	}

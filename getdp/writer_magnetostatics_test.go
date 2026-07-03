@@ -48,12 +48,12 @@ func TestMagnetostaticsDeckEdgeElementFormulation(t *testing.T) {
 	}
 	got := deck.Render()
 	for _, want := range []string{
-		"{ Name se; NameOfCoef ae; Function BF_Edge;",   // edge element
-		"Galerkin { [ nu[] * Dof{d a}, {d a} ];",        // curl-curl (reluctivity)
-		"Galerkin { [ -js[], {a} ];",                    // coil source
-		"In VolS; Jacobian JVol; Integration I1; }",     // source integrated over coil volumes only
-		"{ Name SetA; Case {",                           // far-field a=0 constraint
-		"{ Region Sur4; Value 0; }",                     // pinned on the shell boundary
+		"{ Name se; NameOfCoef ae; Function BF_Edge;", // edge element
+		"Galerkin { [ nu[] * Dof{d a}, {d a} ];",      // curl-curl (reluctivity)
+		"Galerkin { [ -js[], {a} ];",                  // coil source
+		"In VolS; Jacobian JVol; Integration I1; }",   // source integrated over coil volumes only
+		"{ Name SetA; Case {",                         // far-field a=0 constraint
+		"{ Region Sur4; Value 0; }",                   // pinned on the shell boundary
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("magnetostatics deck missing %q:\n%s", want, got)

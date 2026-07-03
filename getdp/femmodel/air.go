@@ -44,18 +44,23 @@ const (
 // and thermal solve only inside the part.
 func NeedsAir(k PhysicsKind) bool {
 	switch k {
-	case PhysicsElectrostatics:
+	case PhysicsElectrostatics, PhysicsMagnetostatics:
 		return true
 	default:
 		return false
 	}
 }
 
-// defaultAir returns the air defaults for a physics: an automatic padded box for air-needing
-// physics, none otherwise.
+// defaultAir returns the air defaults for a physics: electrostatics closes with a padded box
+// (its field is confined), magnetostatics with an infinite shell (its slowly-decaying field
+// wants a true open boundary) and the wider magnetics padding; none for confined physics.
 func defaultAir(k PhysicsKind) AirRegion {
-	if !NeedsAir(k) {
+	switch k {
+	case PhysicsElectrostatics:
+		return AirRegion{Mode: AirAutomaticBox, PaddingFactor: electrostaticsPadding, Truncation: TruncationPaddedBox}
+	case PhysicsMagnetostatics:
+		return AirRegion{Mode: AirAutomaticBox, PaddingFactor: magneticsPadding, Truncation: TruncationInfiniteShell}
+	default:
 		return AirRegion{Mode: AirNone}
 	}
-	return AirRegion{Mode: AirAutomaticBox, PaddingFactor: electrostaticsPadding, Truncation: TruncationPaddedBox}
 }
