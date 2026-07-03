@@ -92,16 +92,28 @@ func addElement(mesh *TetMesh, nums []int) {
 	nodes := nums[3+ntags:]
 	switch etype {
 	case gmshTet4, gmshTet10:
-		mesh.Elements = append(mesh.Elements, TetElement{ID: id, Nodes: append([]int(nil), nodes...)})
+		mesh.Elements = append(mesh.Elements, TetElement{
+			ID: id, Nodes: append([]int(nil), nodes...), Physical: physicalTag(nums, ntags),
+		})
 	case gmshTri6, gmshTri3:
 		if len(nodes) >= 3 {
 			mesh.Surface = append(mesh.Surface, BoundaryFacet{
-				Nodes:   append([]int(nil), nodes...),
-				Corners: [3]int{nodes[0], nodes[1], nodes[2]},
-				Face:    elementaryTag(nums, ntags),
+				Nodes:    append([]int(nil), nodes...),
+				Corners:  [3]int{nodes[0], nodes[1], nodes[2]},
+				Face:     elementaryTag(nums, ntags),
+				Physical: physicalTag(nums, ntags),
 			})
 		}
 	}
+}
+
+// physicalTag returns the gmsh physical-group tag of an element row (the FIRST tag in MSH
+// 2.2's [physical, elementary, …]); 0 when the element carries no tags.
+func physicalTag(nums []int, ntags int) int {
+	if ntags >= 1 {
+		return nums[3]
+	}
+	return 0
 }
 
 // elementaryTag returns the gmsh elementary (geometric) entity tag of an element row.

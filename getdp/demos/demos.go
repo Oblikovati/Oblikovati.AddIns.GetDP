@@ -46,6 +46,8 @@ type Study struct {
 	Physics        femmodel.PhysicsKind
 	Constraints    []femmodel.ConstraintObject
 	MeshModelUnits float64 // characteristic element length (model units); 0 = auto
+	Epsilon        float64 // dielectric relative permittivity εr for the part region; 0 = physics default
+	AirPadding     float64 // automatic air-box padding (× part diagonal); 0 = physics default
 }
 
 // Param is one published host parameter (name + unit-bearing expression). Demos expose

@@ -67,18 +67,41 @@ func studyNode(s *femmodel.Study, active bool) wire.BrowserNodeSpec {
 	}
 }
 
-// regionsNode lists the study's body regions.
+// regionsNode lists the study's body regions, plus the surrounding air region for the EM
+// physics that solve fields in the space around the part (so the air domain is a first-class,
+// editable tree entry, not implicit).
 func regionsNode(s *femmodel.Study) wire.BrowserNodeSpec {
 	glyph := iconSVG("regions")
-	kids := make([]wire.BrowserNodeSpec, 0, len(s.Regions()))
+	kids := make([]wire.BrowserNodeSpec, 0, len(s.Regions())+1)
 	for _, r := range s.Regions() {
 		kids = append(kids, wire.BrowserNodeSpec{
 			ID: "region:" + r.ID, Label: fmt.Sprintf("%s (%s)", r.Name, r.Material.Name),
 			IconSVG: iconSVG("materials"), Menu: editMenu(),
 		})
 	}
+	if femmodel.NeedsAir(s.Solver.Physics) {
+		kids = append(kids, wire.BrowserNodeSpec{
+			ID: "air:" + s.ID(), Label: airLabel(s.Solver.Air),
+			IconSVG: iconSVG("airregion"), Menu: editMenu(),
+		})
+	}
 	return wire.BrowserNodeSpec{ID: "regions:" + s.ID(), Label: "Regions", IconSVG: glyph,
 		Expanded: true, Children: kids}
+}
+
+// airLabel summarizes the air region for its tree row.
+func airLabel(air femmodel.AirRegion) string {
+	switch air.Mode {
+	case femmodel.AirAutomaticBox:
+		if air.Truncation == femmodel.TruncationInfiniteShell {
+			return "Air: automatic ∞-shell"
+		}
+		return fmt.Sprintf("Air: automatic box (pad %g×)", air.PaddingFactor)
+	case femmodel.AirManualBodies:
+		return "Air: manual bodies"
+	default:
+		return "Air: none"
+	}
 }
 
 // constraintsNode lists the study's boundary conditions, flagging an empty set — a
@@ -214,6 +237,8 @@ func (e *Engine) openEditorForNode(node string) {
 		e.openSolverPanel(id)
 	case "region":
 		e.openRegionPanel(id)
+	case "air":
+		e.openAirPanel(id)
 	case "bc":
 		e.openConstraintPanel(id)
 	}

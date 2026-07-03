@@ -35,9 +35,12 @@ func rampMapper(lo, hi float64) wire.GraphicsColorMapper {
 
 // renderScalarField paints a nodal scalar field (potential, temperature) over the mesh
 // surface as a flood plot spanning [lo, hi]. Mesh coordinates are already host model
-// units (the pipeline never converts them), so the viewport gets them verbatim.
-func (e *Engine) renderScalarField(mesh *TetMesh, values map[int]float64, lo, hi float64) error {
-	coords, indices, scalars := surfaceRenderData(mesh, values)
+// units (the pipeline never converts them), so the viewport gets them verbatim. hideOuter
+// drops the air box's outer boundary (air studies) so the part surface shows through instead
+// of a solid box of near-far-field colour; it is false for confined studies (the part skin
+// IS the surface, and its bound faces may legitimately share the outer tag number).
+func (e *Engine) renderScalarField(mesh *TetMesh, values map[int]float64, lo, hi float64, hideOuter bool) error {
+	coords, indices, scalars := surfaceRenderData(mesh, values, hideOuter)
 	mapper := rampMapper(lo, hi)
 	if err := e.api.Graphics().RegisterColorMapper(fieldMapperName, mapper); err != nil {
 		return err
@@ -49,12 +52,15 @@ func (e *Engine) renderScalarField(mesh *TetMesh, values map[int]float64, lo, hi
 // surfaceRenderData flattens the mesh surface into the (coords, triangle-indices,
 // per-vertex scalar) arrays the flood plot expects. Only the corner nodes of the
 // boundary facets are emitted (a linear triangle skin), each carrying its nodal value.
-func surfaceRenderData(mesh *TetMesh, field map[int]float64) ([]float64, []int, []float64) {
+func surfaceRenderData(mesh *TetMesh, field map[int]float64, hideOuter bool) ([]float64, []int, []float64) {
 	index := mesh.nodeByID()
 	slot := make(map[int]int) // node id -> 0-based render vertex
 	var coords, scalars []float64
 	var indices []int
 	for _, bf := range mesh.Surface {
+		if hideOuter && bf.Physical == outerBoundaryTag {
+			continue
+		}
 		for _, nid := range bf.Corners {
 			if _, ok := slot[nid]; !ok {
 				slot[nid] = len(coords) / 3

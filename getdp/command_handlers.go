@@ -36,7 +36,7 @@ func (e *Engine) dispatchCommand(id string) {
 		go e.addStudy(femmodel.PhysicsThermalTransient)
 	case GenerateMeshCommandID:
 		go e.meshOnly()
-	case DemoBusbarCommandID, DemoHeatSinkCommandID:
+	case DemoBusbarCommandID, DemoHeatSinkCommandID, DemoCapacitorCommandID:
 		go e.buildDemo(id)
 	default:
 		e.dispatchEditorCommand(id)
@@ -66,6 +66,8 @@ func (e *Engine) dispatchWindowCommand(id string) {
 		go e.openStudyPanel(e.activeStudyID())
 	case EditRegionsCommandID, EditMaterialsCommandID:
 		go e.openFirstRegionPanel()
+	case AirRegionCommandID:
+		go e.openAirPanel(e.activeStudyID())
 	case MeshSettingsCommandID:
 		go e.openMeshPanel(e.activeStudyID())
 	case SolverSettingsCommandID:

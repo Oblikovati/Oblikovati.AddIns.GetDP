@@ -9,6 +9,9 @@ type SolverObject struct {
 	TMax, DT, Theta float64
 	// Initial field value for transient studies (starting temperature).
 	Initial float64
+	// Air is the surrounding-domain configuration for physics that solve fields around the
+	// part (electrostatics and the EM family); zero-valued (AirNone) otherwise.
+	Air AirRegion
 }
 
 // MeshObject holds the study's global mesh settings (TP-11).
@@ -28,11 +31,12 @@ type RegionObject struct {
 
 // MaterialProps carries the SI volumetric properties the shipped physics read.
 type MaterialProps struct {
-	Name  string
-	Sigma float64 // electrical conductivity, S/m
-	K     float64 // thermal conductivity, W/(m·K)
-	Rho   float64 // density, kg/m³
-	Cp    float64 // specific heat, J/(kg·K)
+	Name    string
+	Sigma   float64 // electrical conductivity, S/m
+	K       float64 // thermal conductivity, W/(m·K)
+	Rho     float64 // density, kg/m³
+	Cp      float64 // specific heat, J/(kg·K)
+	Epsilon float64 // relative permittivity εr (electrostatics), 1 = vacuum/air
 }
 
 // ConstraintKind mirrors the engine's constraint kinds (value-identical strings).
@@ -61,8 +65,9 @@ type ConstraintObject struct {
 
 // electricKinds / thermalKinds are the per-physics constraint vocabularies (spec §4.3).
 var (
-	electricKinds = []ConstraintKind{KindVoltage, KindCurrent}
-	thermalKinds  = []ConstraintKind{KindTemperature, KindHeatFlux, KindConvection}
+	electricKinds      = []ConstraintKind{KindVoltage, KindCurrent}
+	thermalKinds       = []ConstraintKind{KindTemperature, KindHeatFlux, KindConvection}
+	electrostaticKinds = []ConstraintKind{KindVoltage}
 )
 
 // allowedKinds returns the constraint vocabulary of a physics.
@@ -72,6 +77,8 @@ func allowedKinds(p PhysicsKind) []ConstraintKind {
 		return electricKinds
 	case PhysicsThermalSteady, PhysicsThermalTransient:
 		return thermalKinds
+	case PhysicsElectrostatics:
+		return electrostaticKinds
 	default:
 		return nil
 	}

@@ -25,6 +25,10 @@ func (e *Engine) applyPanelEdit(windowID, controlID, value string) {
 		e.panel.applyRegionEdit(controlID, value)
 	case tpConstraintID:
 		e.panel.applyConstraintEdit(controlID, value)
+	case tpAirID:
+		if e.panel.applyAirEdit(controlID, value) {
+			go e.reshowAirPanel() // mode/truncation toggle changed which controls apply
+		}
 	case tpMeshID:
 		e.panel.applyMeshEdit(controlID, value)
 	}
@@ -88,6 +92,34 @@ func (p *openPanel) applyConstraintEdit(controlID, value string) {
 	}
 }
 
+// applyAirEdit mutates the TP-3 draft and reports whether the change alters which controls
+// apply (a mode switch, or toggling the infinite shell), so the caller re-renders the panel.
+func (p *openPanel) applyAirEdit(controlID, value string) (reRender bool) {
+	switch controlID {
+	case "mode":
+		if m := parseAirMode(value); m != p.air.Mode {
+			p.air.Mode = m
+			return true
+		}
+	case "padding":
+		setNum(&p.air.PaddingFactor, value)
+	case "infshell":
+		want := femmodel.TruncationPaddedBox
+		if value == "true" {
+			want = femmodel.TruncationInfiniteShell
+		}
+		if want != p.air.Truncation {
+			p.air.Truncation = want
+			return true
+		}
+	case "rint":
+		setNum(&p.air.ShellRint, value)
+	case "rext":
+		setNum(&p.air.ShellRext, value)
+	}
+	return false
+}
+
 // applyMeshEdit mutates the TP-11 draft.
 func (p *openPanel) applyMeshEdit(controlID, value string) {
 	switch controlID {
@@ -143,6 +175,9 @@ func commitPanel(a *femmodel.Analysis, p *openPanel) error {
 		return s.UpdateRegion(p.region)
 	case tpConstraintID:
 		return commitConstraintDraft(s, p)
+	case tpAirID:
+		s.Solver.Air = p.air
+		return nil
 	case tpMeshID:
 		s.Mesh = p.mesh
 		return nil

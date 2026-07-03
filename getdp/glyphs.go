@@ -43,6 +43,65 @@ func (e *Engine) refreshGlyphs() {
 	for _, c := range constraints {
 		e.drawConstraintGlyphs(c, solids)
 	}
+	e.drawAirBoxGlyph(solids)
+}
+
+// airGlyphClientID names the single air-box wireframe group of the active study.
+const airGlyphClientID = glyphClientPrefix + "airbox"
+
+// drawAirBoxGlyph frames the padded air domain the field solves in with a translucent grey
+// dashed wireframe box (spec §4.4). It shows only for an EM study whose air is an automatic
+// box, and tracks the padding because it is rebuilt from the current AirRegion every refresh
+// (clearGlyphs already removed the previous box). solids is the active study's bodies.
+func (e *Engine) drawAirBoxGlyph(solids []wire.BodyInfo) {
+	e.mu.Lock()
+	active := e.analysis.Active()
+	physics, air := active.Solver.Physics, active.Solver.Air
+	e.mu.Unlock()
+	if !wantsAirBoxGlyph(physics, air) || len(solids) != 1 {
+		return // auto air is single-body; None/Manual and confined physics frame nothing
+	}
+	surface, err := e.pullSurface(solids[0].Index)
+	if err != nil {
+		return
+	}
+	lo, hi := surfaceBBox(surface)
+	e.pushAirBoxWireframe(airBox(lo, hi, air.PaddingFactor))
+}
+
+// wantsAirBoxGlyph reports whether the active study should show the air-box wireframe: an EM
+// physics whose air region is an automatic padded box.
+func wantsAirBoxGlyph(physics femmodel.PhysicsKind, air femmodel.AirRegion) bool {
+	return femmodel.NeedsAir(physics) && air.Mode == femmodel.AirAutomaticBox
+}
+
+// airBoxWireframe returns the eight corner coordinates and the twelve edges (index pairs) of
+// box b for a GraphicsLines primitive.
+func airBoxWireframe(b box) (coords []float64, edges []int) {
+	for _, c := range boxCorners(b) {
+		coords = append(coords, c[0], c[1], c[2])
+	}
+	edges = []int{0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7}
+	return coords, edges
+}
+
+// pushAirBoxWireframe sends the dashed translucent grey air-box lines to the viewport.
+func (e *Engine) pushAirBoxWireframe(b box) {
+	coords, idx := airBoxWireframe(b)
+	prim := wire.GraphicsPrimitive{
+		Kind:        string(types.GraphicsLines),
+		Coordinates: coords,
+		Indices:     idx,
+		Color:       []float32{0.6, 0.6, 0.6, 1},
+		LineType:    string(types.GraphicsLineDashed),
+		LineWeight:  1.5,
+		Opacity:     0.5,
+	}
+	_, _ = e.api.Graphics().Set(wire.SetClientGraphicsArgs{
+		ClientId: airGlyphClientID,
+		Lane:     string(types.GraphicsLanePersistent),
+		Nodes:    []wire.GraphicsNode{{Primitives: []wire.GraphicsPrimitive{prim}}},
+	})
 }
 
 // clearGlyphs removes every glyph group we previously pushed.

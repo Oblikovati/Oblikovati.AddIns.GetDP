@@ -73,6 +73,19 @@ func (h *recordingHost) callCount() int {
 	return len(h.calls)
 }
 
+// count returns how many times a specific host method was called.
+func (h *recordingHost) count(method string) int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	n := 0
+	for _, m := range h.calls {
+		if m == method {
+			n++
+		}
+	}
+	return n
+}
+
 // lastStatus returns the most recent status.setText message, or "".
 func (h *recordingHost) lastStatus() string {
 	h.mu.Lock()

@@ -18,6 +18,10 @@ type TetElement struct {
 	ID    int
 	Nodes []int
 	Body  int
+	// Physical is the gmsh physical-group tag the element was saved under (0 when
+	// ungrouped). The conformal air mesh groups the part and air volumes under distinct
+	// tags, which assignAirBodies reads to split them into part vs air bodies.
+	Physical int
 }
 
 // IsSecondOrder reports whether this element is a 10-node (second-order) tetrahedron.
@@ -32,6 +36,9 @@ type BoundaryFacet struct {
 	Nodes   []int // 3 (first-order) or 6 (second-order) node ids
 	Corners [3]int
 	Face    int
+	// Physical is the gmsh physical-group tag the facet was saved under (0 when ungrouped).
+	// The air mesh groups the outer box boundary under one tag, which the far-field BC binds.
+	Physical int
 }
 
 // TetMesh is a solid tetrahedral mesh: nodes, volume elements, and the triangular

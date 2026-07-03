@@ -6,7 +6,7 @@ package femmodel
 // carry no time grid; thermal transient defaults to 60 s of implicit Euler at 1 s
 // steps from ambient.
 func defaultSolver(kind PhysicsKind) SolverObject {
-	s := SolverObject{Physics: kind}
+	s := SolverObject{Physics: kind, Air: defaultAir(kind)}
 	if kind == PhysicsThermalTransient {
 		s.TMax, s.DT, s.Theta, s.Initial = 60, 1, 1, 293.15
 	}
@@ -19,8 +19,14 @@ func defaultMesh() MeshObject { return MeshObject{SizeModelUnits: 0, SecondOrder
 // defaultMaterial returns the TP-2 default material of a physics: copper for
 // current-conduction studies, aluminium for thermal ones.
 func defaultMaterial(kind PhysicsKind) MaterialProps {
-	if kind == PhysicsElectrokinetics {
+	switch kind {
+	case PhysicsElectrokinetics:
 		return MaterialProps{Name: "Copper", Sigma: 5.96e7, K: 401, Rho: 8960, Cp: 385}
+	case PhysicsElectrostatics:
+		// A unit-permittivity dielectric by default (the demo raises εr); the generated
+		// air region is vacuum (εr = 1) too.
+		return MaterialProps{Name: "Dielectric", Epsilon: 1}
+	default:
+		return MaterialProps{Name: "Aluminium", Sigma: 3.5e7, K: 205, Rho: 2700, Cp: 900}
 	}
-	return MaterialProps{Name: "Aluminium", Sigma: 3.5e7, K: 205, Rho: 2700, Cp: 900}
 }

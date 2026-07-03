@@ -13,6 +13,7 @@ const (
 	PhysicsElectrokinetics  PhysicsKind = "electrokinetics"
 	PhysicsThermalSteady    PhysicsKind = "thermal"
 	PhysicsThermalTransient PhysicsKind = "thermal transient"
+	PhysicsElectrostatics   PhysicsKind = "electrostatics"
 )
 
 // Study is one simulation study: physics + solver settings, mesh settings, body

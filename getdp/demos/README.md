@@ -70,3 +70,33 @@ The fin array is a linear pattern: `fin_count` drives the instance count while t
 baked at build (matching the add-in's pattern convention). A finned heat sink has no
 closed-form solution, so this demo is validated by a clean DOF = 0 build and a green solve
 with a physically sensible field (monotonic base → tip cooling), not an analytic oracle.
+
+## Parallel-plate capacitor (electrostatics)
+
+A 40 × 40 mm square dielectric slab, 6 mm thick, centred on the origin. Its two large faces
+are the plates: one held at `V+`, the other grounded. This is the first **air-region**
+physics — the field solves in the slab *and* the surrounding automatic air box, so the
+reported capacitance sits a little above the ideal parallel-plate value by the fringing the
+air captures.
+
+![Capacitor potential flood plot](../../docs/demos/capacitor.png)
+
+Geometric host parameters (edit either to re-drive the slab):
+
+| Parameter    | Value | Role                                              |
+| ------------ | ----- | ------------------------------------------------- |
+| `plate_size` | 40 mm | Plate side length (X and Y); the square is centred by `-plate_size/2` corner formulas |
+| `gap`        | 6 mm  | Plate separation / dielectric thickness (Z)       |
+
+**Study values** (not host parameters): dielectric εr = 4, applied plate potential 1 V, and
+a tight automatic air box (padding 1.5× the part diagonal — a thin capacitor in the 3×
+default box is needlessly large to mesh).
+
+**Boundary conditions:** `V+` (1 V) on the z = gap plate, `Ground` (0 V) on the z = 0 plate.
+The slab region carries the dielectric permittivity; the surrounding air is εr = 1.
+
+**Analytic reference.** The ideal parallel-plate capacitance is `C = ε₀·εr·A/d`
+(`A = plate_size²`, `d = gap`) ≈ 8.85e-12 · 4 · 0.0016 / 0.006 ≈ 9.4 pF; the solved value is
+higher because the open-air model includes fringing. Because `C(gap)` has this clean form,
+the same geometry family drives the optimization walkthrough. The reported capacitance
+prints on the status line after **Run Study**.

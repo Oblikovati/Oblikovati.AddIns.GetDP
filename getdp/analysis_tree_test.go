@@ -55,6 +55,25 @@ func childByPrefix(t *testing.T, node wire.BrowserNodeSpec, prefix string) wire.
 	return wire.BrowserNodeSpec{}
 }
 
+// TestRegionsNodeShowsAirForEMStudies: an electrostatics study's Regions node carries an
+// air-region child, a confined (electrokinetics) study's does not.
+func TestRegionsNodeShowsAirForEMStudies(t *testing.T) {
+	a := femmodel.NewAnalysis() // default study is electrokinetics (confined)
+	a.AddStudy(femmodel.PhysicsElectrostatics)
+	kids := studyNodes(a)[0].Children
+	esRegions := childByPrefix(t, kids[len(kids)-1], "regions:")
+	air := childByPrefix(t, esRegions, "air:")
+	if !strings.Contains(air.Label, "automatic box") {
+		t.Errorf("air node label = %q, want an automatic-box summary", air.Label)
+	}
+	ekRegions := childByPrefix(t, kids[0], "regions:")
+	for _, c := range ekRegions.Children {
+		if strings.HasPrefix(c.ID, "air:") {
+			t.Errorf("confined study must not show an air node: %+v", c)
+		}
+	}
+}
+
 // TestTreeMenuMutationsRoundTrip drives set-active / duplicate / delete through the
 // browser-node event path against the recording host.
 func TestTreeMenuMutationsRoundTrip(t *testing.T) {

@@ -22,8 +22,9 @@ type demoEntry struct {
 // demoRegistry maps each demo command to its document name and builder. Adding a physics
 // demo is one line here plus a command/ribbon spot.
 var demoRegistry = map[string]demoEntry{
-	DemoBusbarCommandID:   {"GetDP Busbar Demo", demos.BuildBusbar},
-	DemoHeatSinkCommandID: {"GetDP Heat Sink Demo", demos.BuildHeatSink},
+	DemoBusbarCommandID:    {"GetDP Busbar Demo", demos.BuildBusbar},
+	DemoHeatSinkCommandID:  {"GetDP Heat Sink Demo", demos.BuildHeatSink},
+	DemoCapacitorCommandID: {"GetDP Capacitor Demo", demos.BuildCapacitor},
 }
 
 // buildDemo runs one bundled demo from its command: it builds the parametric part and study,
@@ -67,15 +68,17 @@ func (e *Engine) buildDemoOnHost(entry demoEntry) (string, error) {
 	return entry.docName, e.loadDemoStudy(entry.docName, study)
 }
 
-// loadDemoStudy adds a new active study of the demo's physics and loads its mesh size and
-// constraints onto it. The default all-bodies region already carries the physics' default
-// material (copper / aluminium), which is what the demos model.
+// loadDemoStudy adds a new active study of the demo's physics and loads its mesh size,
+// dielectric/air overrides and constraints onto it. The default all-bodies region already
+// carries the physics' default material (copper / aluminium / vacuum dielectric); a demo may
+// override the permittivity (a real dielectric) and the air-box padding.
 func (e *Engine) loadDemoStudy(name string, study demos.Study) error {
 	var addErr error
 	e.withAnalysis(func(a *femmodel.Analysis) {
 		s := a.AddStudy(study.Physics)
 		s.Rename(name)
 		s.Mesh.SizeModelUnits = study.MeshModelUnits
+		applyDemoMaterialAndAir(s, study)
 		for _, c := range study.Constraints {
 			if _, err := s.AddConstraint(c); err != nil {
 				addErr = fmt.Errorf("load constraint %q: %w", c.Name, err)
@@ -84,4 +87,18 @@ func (e *Engine) loadDemoStudy(name string, study demos.Study) error {
 		}
 	})
 	return addErr
+}
+
+// applyDemoMaterialAndAir folds a demo's dielectric permittivity onto the part region and its
+// air-box padding onto the solver (both no-ops when the demo leaves them at 0).
+func applyDemoMaterialAndAir(s *femmodel.Study, study demos.Study) {
+	if study.Epsilon > 0 {
+		if regs := s.Regions(); len(regs) > 0 {
+			regs[0].Material.Epsilon = study.Epsilon
+			_ = s.UpdateRegion(regs[0])
+		}
+	}
+	if study.AirPadding > 0 {
+		s.Solver.Air.PaddingFactor = study.AirPadding
+	}
 }

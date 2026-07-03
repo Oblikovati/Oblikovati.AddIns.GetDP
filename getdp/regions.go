@@ -50,6 +50,33 @@ func newRegionTable(bodyNames []string) *RegionTable {
 	return t
 }
 
+// addAirVolume registers the generated air region as one more physical volume (the last
+// tag, body airBodyIndex) so the deck and MSH tag its tets alongside the part bodies.
+func (t *RegionTable) addAirVolume() {
+	t.Volumes = append(t.Volumes, VolumeRegion{Tag: t.nextTag(), Name: "Air", Body: airBodyIndex})
+}
+
+// BindOuterBoundary registers the air box's outer facets (mesh physical tag outerBoundaryTag)
+// as one physical surface and returns its tag — the far-field boundary the electrostatic
+// solve pins to zero. Unlike BindSurface it binds directly from the mesh, not a host face:
+// the generated box has no B-rep face to pick.
+func (t *RegionTable) BindOuterBoundary(mesh *TetMesh) (int, error) {
+	var facets []BoundaryFacet
+	for _, f := range mesh.Surface {
+		if f.Physical == outerBoundaryTag {
+			facets = append(facets, f)
+		}
+	}
+	if len(facets) == 0 {
+		return 0, fmt.Errorf("no outer-boundary facets (physical tag %d) in the mesh to bind the far-field potential", outerBoundaryTag)
+	}
+	tag := t.nextTag()
+	t.Surfaces = append(t.Surfaces, SurfaceRegion{
+		Tag: tag, Name: "FarField", Facets: facets, AreaModelUnits: facetsArea(mesh, facets),
+	})
+	return tag, nil
+}
+
 // BindSurface registers the union of the given face keys' bound facets as one physical
 // surface and returns its tag. Surface tags continue after the volume tags, in claim
 // order — deterministic because specs resolve in model order.

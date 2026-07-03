@@ -18,48 +18,111 @@ type FaceGroups struct {
 	Normals map[string][3]float64
 }
 
-// normalAlignMin is the minimum |dot| of two unit normals to consider two facets coplanar
-// (about 25°). Box/prism faces meet at sharp edges, so this cleanly separates them.
-const normalAlignMin = 0.9
+// faceNormalGate is the minimum |dot| of a facet normal and its nearest host-triangle normal
+// to accept a binding (about 45°): generous enough to tolerate the tilt of a faceted curved
+// wall, tight enough to reject a perpendicular rim/cap facet a wall merely touches.
+const faceNormalGate = 0.7
 
-// faceAgg accumulates a group of mesh boundary facets sharing a gmsh surface id: a
-// representative centroid and normal, the union of their node ids, and the facets
-// themselves (emitted as the Physical Surface triangles).
+// facetBindTolerance scales the mean facet size into the distance a bound facet may sit from
+// its host face — a backstop against binding facets that lie on no selected face.
+const facetBindTolerance = 1.5
+
+// faceAgg accumulates the mesh boundary facets bound to one host face: a representative
+// normal, the union of their node ids, and the facets themselves (emitted as the Physical
+// Surface triangles).
 type faceAgg struct {
-	centroidSum [3]float64
-	normalSum   [3]float64
-	count       int
-	nodes       map[int]bool
-	facets      []BoundaryFacet
+	normalSum [3]float64
+	count     int
+	nodes     map[int]bool
+	facets    []BoundaryFacet
 }
 
-// buildFaceGroups binds each selected host face to a mesh surface group. gmsh has already
-// partitioned the mesh surface into per-face groups (BoundaryFacet.Face); each host face
-// is matched to the gmsh group with the aligned normal and nearest centroid. This is
-// exact for the planar/prismatic faces of the v1 slice; a curved host face that gmsh
-// splits into several patches matches only its nearest patch (a documented follow-up).
+// buildFaceGroups binds each selected host face to the mesh boundary facets that lie on it.
+// Every facet is classified independently — assigned to the nearest selected host face by
+// true point-to-triangle distance, gated on local normal agreement (#61). Unlike the old
+// mean-normal group match this is exact for curved walls (a closed cylinder's mean normal
+// cancels; per-facet distance still separates concentric electrodes) and does not depend on
+// how gmsh partitioned the surface.
 func (e *Engine) buildFaceGroups(faceKeys []string, mesh *TetMesh, solids []wire.BodyInfo) (*FaceGroups, error) {
-	groups := groupBoundaryByFace(mesh)
+	tris, err := e.hostTrisForFaces(faceKeys, solids)
+	if err != nil {
+		return nil, err
+	}
+	distTol := facetBindTolerance * characteristicFacetSize(mesh)
+	aggs := classifyBoundary(mesh, tris, distTol)
 	out := &FaceGroups{
 		Facets:  make(map[string][]BoundaryFacet, len(faceKeys)),
 		Nodes:   make(map[string][]int, len(faceKeys)),
 		Normals: make(map[string][3]float64, len(faceKeys)),
 	}
 	for _, key := range faceKeys {
+		agg := aggs[key]
+		if agg == nil {
+			return nil, fmt.Errorf("face %s bound no mesh boundary facets within %g model units of its "+
+				"host tessellation (is it interior, or inside another body?)", key, distTol)
+		}
+		out.Facets[key] = agg.facets
+		out.Nodes[key] = agg.nodeList()
+		out.Normals[key] = agg.normal()
+	}
+	return out, nil
+}
+
+// hostTrisForFaces pulls each selected face's tessellation and flattens it into keyed
+// triangles (with unit normals) the classifier scans.
+func (e *Engine) hostTrisForFaces(faceKeys []string, solids []wire.BodyInfo) ([]hostTri, error) {
+	var tris []hostTri
+	for _, key := range faceKeys {
 		host, err := e.pullFaceOnAnyBody(key, solids)
 		if err != nil {
 			return nil, err
 		}
-		hc, hn := surfaceCentroidNormal(host)
-		match := matchFace(groups, hc, hn)
-		if match == nil {
-			return nil, fmt.Errorf("face %s did not match any mesh surface group", key)
+		for _, t := range host.Tris {
+			a, b, c := host.Verts[t[0]], host.Verts[t[1]], host.Verts[t[2]]
+			tris = append(tris, hostTri{key: key, a: a, b: b, c: c, unitNormal: triNormal(a, b, c)})
 		}
-		out.Facets[key] = match.facets
-		out.Nodes[key] = match.nodeList()
-		out.Normals[key] = match.normal()
 	}
-	return out, nil
+	return tris, nil
+}
+
+// classifyBoundary assigns every mesh boundary facet to the selected host face it lies on,
+// grouping the bound facets (with their nodes and normals) per face key.
+func classifyBoundary(mesh *TetMesh, tris []hostTri, distTol float64) map[string]*faceAgg {
+	index := mesh.nodeByID()
+	aggs := map[string]*faceAgg{}
+	for _, bf := range mesh.Surface {
+		c, n := facetCentroidNormal(bf, index)
+		key, ok := nearestHostFace(c, n, tris, distTol, faceNormalGate)
+		if !ok {
+			continue
+		}
+		agg := aggs[key]
+		if agg == nil {
+			agg = &faceAgg{nodes: map[int]bool{}}
+			aggs[key] = agg
+		}
+		agg.accumulate(n, bf)
+	}
+	return aggs
+}
+
+// characteristicFacetSize is the mean boundary-facet edge length (model units) — the natural
+// scale the bind tolerance rides on, valid whether the mesh size was set or auto-picked.
+func characteristicFacetSize(mesh *TetMesh) float64 {
+	index := mesh.nodeByID()
+	var sum float64
+	var count int
+	for _, bf := range mesh.Surface {
+		a := nodeXYZ(index[bf.Corners[0]])
+		b := nodeXYZ(index[bf.Corners[1]])
+		c := nodeXYZ(index[bf.Corners[2]])
+		sum += distance(a, b) + distance(b, c) + distance(c, a)
+		count += 3
+	}
+	if count == 0 {
+		return 0
+	}
+	return sum / float64(count)
 }
 
 // pullFaceOnAnyBody fetches a face's triangulation by trying each solid body until the key
@@ -78,26 +141,9 @@ func (e *Engine) pullFaceOnAnyBody(key string, solids []wire.BodyInfo) (*Surface
 	return nil, fmt.Errorf("face %s not found on any of the %d solid bodies: %w", key, len(solids), lastErr)
 }
 
-// groupBoundaryByFace aggregates the mesh's boundary facets by their gmsh surface id.
-func groupBoundaryByFace(mesh *TetMesh) map[int]*faceAgg {
-	index := mesh.nodeByID()
-	groups := map[int]*faceAgg{}
-	for _, bf := range mesh.Surface {
-		c, n := facetCentroidNormal(bf, index)
-		agg := groups[bf.Face]
-		if agg == nil {
-			agg = &faceAgg{nodes: map[int]bool{}}
-			groups[bf.Face] = agg
-		}
-		agg.accumulate(c, n, bf)
-	}
-	return groups
-}
-
-// accumulate folds one facet's centroid, normal, and nodes into the aggregate.
-func (a *faceAgg) accumulate(centroid, normal [3]float64, bf BoundaryFacet) {
+// accumulate folds one facet's normal and nodes into the aggregate.
+func (a *faceAgg) accumulate(normal [3]float64, bf BoundaryFacet) {
 	for k := 0; k < 3; k++ {
-		a.centroidSum[k] += centroid[k]
 		a.normalSum[k] += normal[k]
 	}
 	a.count++
@@ -105,12 +151,6 @@ func (a *faceAgg) accumulate(centroid, normal [3]float64, bf BoundaryFacet) {
 		a.nodes[n] = true
 	}
 	a.facets = append(a.facets, bf)
-}
-
-// centroid returns the mean facet centroid of the group.
-func (a *faceAgg) centroid() [3]float64 {
-	inv := 1.0 / float64(a.count)
-	return [3]float64{a.centroidSum[0] * inv, a.centroidSum[1] * inv, a.centroidSum[2] * inv}
 }
 
 // normal returns the (unit) mean facet normal of the group.
@@ -123,22 +163,6 @@ func (a *faceAgg) nodeList() []int {
 		ids = append(ids, n)
 	}
 	return ids
-}
-
-// matchFace returns the boundary group whose normal aligns with hn and whose centroid is
-// closest to hc, or nil if none aligns.
-func matchFace(groups map[int]*faceAgg, hc, hn [3]float64) *faceAgg {
-	var best *faceAgg
-	bestDist := math.Inf(1)
-	for _, agg := range groups {
-		if math.Abs(dot(agg.normal(), hn)) < normalAlignMin {
-			continue
-		}
-		if d := distance(agg.centroid(), hc); d < bestDist {
-			bestDist, best = d, agg
-		}
-	}
-	return best
 }
 
 // facetCentroidNormal returns a boundary facet's corner centroid and unit normal.
