@@ -60,6 +60,28 @@ func TestCoilCenterProbes(t *testing.T) {
 	}
 }
 
+// TestLinearSolverOfDefaultsAndOverride: magnetostatics gets the GMRES+diagonal defaults, and
+// a study's TP-12 knobs override them field-by-field; non-magnetic physics get no solver.par.
+func TestLinearSolverOfDefaultsAndOverride(t *testing.T) {
+	def := linearSolverOf(runInputs{physics: femmodel.PhysicsMagnetostatics})
+	if def == nil || def.Algorithm != 8 || def.Preconditioner != 8 || def.MaxIter != 5000 {
+		t.Fatalf("magnetostatics default solver = %+v, want GMRES(8)+diagonal(8), 5000 iters", def)
+	}
+	over := linearSolverOf(runInputs{
+		physics: femmodel.PhysicsMagnetostatics,
+		solver:  femmodel.SolverObject{Linear: femmodel.LinearSolver{Tolerance: 1e-6, Preconditioner: 2}},
+	})
+	if over.Tolerance != 1e-6 || over.Preconditioner != 2 {
+		t.Errorf("overridden solver = %+v, want tol 1e-6 + preconditioner 2", over)
+	}
+	if over.MaxIter != 5000 {
+		t.Errorf("unset knob must keep the default: MaxIter = %d, want 5000", over.MaxIter)
+	}
+	if ls := linearSolverOf(runInputs{physics: femmodel.PhysicsElectrostatics}); ls != nil {
+		t.Errorf("non-magnetic physics must not configure a linear solver, got %+v", ls)
+	}
+}
+
 // outerBoundaryMesh is a one-facet mesh whose single triangle is the air-box outer wall.
 func outerBoundaryMesh() *TetMesh {
 	return &TetMesh{

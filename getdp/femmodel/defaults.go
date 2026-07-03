@@ -10,6 +10,12 @@ func defaultSolver(kind PhysicsKind) SolverObject {
 	if kind == PhysicsThermalTransient {
 		s.TMax, s.DT, s.Theta, s.Initial = 60, 1, 1, 293.15
 	}
+	if kind == PhysicsMagnetostatics {
+		// Ungauged edge-element GMRES defaults (mirrors pro.DefaultMagnetostaticsSolver; kept
+		// as literals so this model package stays free of the deck-AST dependency): diagonal
+		// preconditioner (8, safe on the singular operator), 1e-8 residual, generous cap.
+		s.Linear = LinearSolver{Tolerance: 1e-8, MaxIter: 5000, Preconditioner: 8}
+	}
 	return s
 }
 

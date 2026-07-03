@@ -38,11 +38,12 @@ type Material struct {
 type DeckInput struct {
 	Regions   *RegionTable
 	Model     *SolveModel
-	Materials map[int]Material // by volume tag
-	Order     int              // element order (integration rule selection)
-	Transient *TransientSpec   // nil for static studies
-	Shell     *ShellTransform  // nil unless the study is truncated by an infinite shell (#25)
-	Probes    []FieldProbe     // point field-value probes (magnetostatics oracle / coil-centre field)
+	Materials map[int]Material  // by volume tag
+	Order     int               // element order (integration rule selection)
+	Transient *TransientSpec    // nil for static studies
+	Shell     *ShellTransform   // nil unless the study is truncated by an infinite shell (#25)
+	Probes    []FieldProbe      // point field-value probes (magnetostatics oracle / coil-centre field)
+	Solver    *pro.SolverParams // linear-solver knobs (TP-12); nil = the physics writer's defaults
 }
 
 // FieldProbe is one point at which a physics writer prints the field value to its own

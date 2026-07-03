@@ -32,6 +32,19 @@ func TestMagnetostaticsDefaultMaterialIsUnitPermeability(t *testing.T) {
 	}
 }
 
+// TestMagnetostaticsDefaultLinearSolver: a magnetostatics study defaults to the ungauged
+// GMRES knobs (diagonal preconditioner, 1e-8 residual) TP-12 later edits; non-iterative
+// physics leave the linear-solver config zero.
+func TestMagnetostaticsDefaultLinearSolver(t *testing.T) {
+	ls := defaultSolver(PhysicsMagnetostatics).Linear
+	if ls.Preconditioner != 8 || ls.Tolerance != 1e-8 || ls.MaxIter != 5000 {
+		t.Errorf("magnetostatics linear solver = %+v, want diagonal(8), 1e-8, 5000", ls)
+	}
+	if es := defaultSolver(PhysicsElectrostatics).Linear; es != (LinearSolver{}) {
+		t.Errorf("electrostatics must leave the linear solver zero, got %+v", es)
+	}
+}
+
 // TestStudyCarriesCoils: a magnetostatics study holds coil (current-source) objects; Add
 // returns an id and Coils reports them in creation order.
 func TestStudyCarriesCoils(t *testing.T) {

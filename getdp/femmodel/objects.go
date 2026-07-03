@@ -12,6 +12,18 @@ type SolverObject struct {
 	// Air is the surrounding-domain configuration for physics that solve fields around the
 	// part (electrostatics and the EM family); zero-valued (AirNone) otherwise.
 	Air AirRegion
+	// Linear is the iterative-solver configuration TP-12 edits (ungauged magnetostatics and
+	// the magnetodynamic family use it); zero-valued for the physics that solve directly.
+	Linear LinearSolver
+}
+
+// LinearSolver is the SPARSKIT iterative-solver configuration (TP-12): the target relative
+// residual, the iteration cap, and the SPARSKIT preconditioner code (8 = diagonal, the safe
+// default on the ungauged curl-curl operator). Zero fields fall back to the writer defaults.
+type LinearSolver struct {
+	Tolerance      float64
+	MaxIter        int
+	Preconditioner int
 }
 
 // MeshObject holds the study's global mesh settings (TP-11).

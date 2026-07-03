@@ -199,7 +199,7 @@ func (e *Engine) buildStudyDeck(in runInputs, mesh *TetMesh, solids []wire.BodyI
 	deck, outs, err := writer.BuildDeck(DeckInput{
 		Regions: regions, Model: rc.Model, Materials: materialsByTag(in, regions, mesh),
 		Order: meshOrderOf(in.mesh), Transient: transientOf(in), Shell: transform,
-		Probes: coilCenterProbes(rc.Model.Coils),
+		Probes: coilCenterProbes(rc.Model.Coils), Solver: linearSolverOf(in),
 	})
 	if err != nil {
 		return "", DeckOutputs{}, nil, err
@@ -453,6 +453,30 @@ func meshOrderOf(m femmodel.MeshObject) int {
 		return 2
 	}
 	return 1
+}
+
+// linearSolverOf builds the deck's SPARSKIT solver.par knobs from the study's TP-12 settings,
+// for the physics that solve iteratively (ungauged magnetostatics). Returns nil otherwise, so
+// the direct-solving physics leave no solver.par and the writer keeps its own defaults if a
+// knob is unset.
+func linearSolverOf(in runInputs) *pro.SolverParams {
+	if in.physics != femmodel.PhysicsMagnetostatics {
+		return nil
+	}
+	def := pro.DefaultMagnetostaticsSolver()
+	p := def
+	if ls := in.solver.Linear; ls.Tolerance > 0 || ls.MaxIter > 0 || ls.Preconditioner > 0 {
+		if ls.Tolerance > 0 {
+			p.Tolerance = ls.Tolerance
+		}
+		if ls.MaxIter > 0 {
+			p.MaxIter = ls.MaxIter
+		}
+		if ls.Preconditioner > 0 {
+			p.Preconditioner = ls.Preconditioner
+		}
+	}
+	return &p
 }
 
 // transientOf builds the theta grid for transient studies (nil otherwise).

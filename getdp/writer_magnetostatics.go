@@ -42,7 +42,17 @@ func (w MagnetostaticsWriter) BuildDeck(in DeckInput) (*pro.Deck, DeckOutputs, e
 		Formulations:   []pro.Formulation{w.formulation()},
 		Resolutions:    []pro.Resolution{pro.StaticResolution("Magnetostatics", "A", "Magnetostatics")},
 	}
-	return d, w.postProcessing(d, in.Probes), nil
+	return d, w.postProcessing(d, in.Probes, solverParams(in.Solver)), nil
+}
+
+// solverParams returns the caller's linear-solver knobs (TP-12 settings), or the ungauged
+// magnetostatics defaults (GMRES + diagonal preconditioner) when the study set none.
+func solverParams(s *pro.SolverParams) *pro.SolverParams {
+	if s != nil {
+		return s
+	}
+	d := pro.DefaultMagnetostaticsSolver()
+	return &d
 }
 
 // nuFunctions emits the magnetic reluctivity ν = 1/(μ₀·μr) per volume group (air, coil and
@@ -108,7 +118,7 @@ func (MagnetostaticsWriter) formulation() pro.Formulation {
 
 // postProcessing prints the |B| field map, the magnetic energy scalar, and one |B| point
 // probe per FieldProbe, and attaches the SPARSKIT solver.par for the ungauged system.
-func (MagnetostaticsWriter) postProcessing(d *pro.Deck, probes []FieldProbe) DeckOutputs {
+func (MagnetostaticsWriter) postProcessing(d *pro.Deck, probes []FieldProbe, solver *pro.SolverParams) DeckOutputs {
 	d.PostProcessings = []pro.PostProcessing{{
 		Name: "MagStaPP", Formulation: "Magnetostatics", Quantities: magPostQuantities(),
 	}}
@@ -120,7 +130,7 @@ func (MagnetostaticsWriter) postProcessing(d *pro.Deck, probes []FieldProbe) Dec
 		Resolution: "Magnetostatics", PostOps: []string{"MagStaOut"},
 		Fields: []FieldOutput{{Path: "b.pos", Label: "magnetic flux density", Unit: "T"}},
 		Tables: []TableOutput{{Path: "energy.txt", Label: "magnetic energy", Unit: "J"}},
-		Solver: ptrSolver(pro.DefaultMagnetostaticsSolver()),
+		Solver: solver,
 	}
 	prints, outs.Tables = appendProbePrints(prints, outs.Tables, probes)
 	d.PostOperations = []pro.PostOperation{{Name: "MagStaOut", PostProcessing: "MagStaPP", Prints: prints}}
@@ -151,6 +161,3 @@ func appendProbePrints(prints []pro.Print, tables []TableOutput, probes []FieldP
 	}
 	return prints, tables
 }
-
-// ptrSolver returns a pointer to a solver-params value (DeckOutputs.Solver is optional).
-func ptrSolver(p pro.SolverParams) *pro.SolverParams { return &p }
