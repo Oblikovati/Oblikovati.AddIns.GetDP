@@ -3,10 +3,44 @@
 package getdp
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"oblikovati.org/getdp/getdp/femmodel"
+	"oblikovati.org/getdp/getdp/pro"
 )
+
+// TestStageFilesWritesSolverPar: when the deck carries solver knobs, stageFiles drops a
+// solver.par alongside study.pro/study.msh (GetDP reads it from the run dir); with no knobs it
+// writes none, so the direct-solving physics keep GetDP's own defaults.
+func TestStageFilesWritesSolverPar(t *testing.T) {
+	regions := &RegionTable{Volumes: []VolumeRegion{{Tag: 1, Name: "Body1", Body: 0}}}
+	solver := pro.DefaultMagnetostaticsSolver()
+
+	dir := t.TempDir()
+	if err := stageFiles(dir, "// deck", oneTetMesh(), regions, &solver); err != nil {
+		t.Fatalf("stageFiles: %v", err)
+	}
+	for _, f := range []string{"study.pro", "study.msh", "solver.par"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			t.Errorf("expected %s in run dir: %v", f, err)
+		}
+	}
+	got, _ := os.ReadFile(filepath.Join(dir, "solver.par"))
+	if !strings.Contains(string(got), "Algorithm 8") || !strings.Contains(string(got), "Preconditioner 8") {
+		t.Errorf("solver.par missing GMRES/diagonal knobs:\n%s", got)
+	}
+
+	dir2 := t.TempDir()
+	if err := stageFiles(dir2, "// deck", oneTetMesh(), regions, nil); err != nil {
+		t.Fatalf("stageFiles (no solver): %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir2, "solver.par")); !os.IsNotExist(err) {
+		t.Errorf("no-solver study must not write solver.par (err=%v)", err)
+	}
+}
 
 // TestResolveCoilsMapsBodiesToTags: each coil body resolves to its physical volume tag, the
 // centre is converted to SI metres, and axis/current density pass through unchanged.
