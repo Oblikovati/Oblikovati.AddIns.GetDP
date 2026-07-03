@@ -2,6 +2,8 @@
 
 package pro
 
+import "fmt"
+
 // Shared composable fragments: every physics writer starts from the same Jacobian and
 // integration rules so decks stay uniform (and golden diffs stay small). Names are
 // package-level constants so writers and post-processing agree by construction.
@@ -17,6 +19,22 @@ const (
 func StandardJacobians() []Jacobian {
 	return []Jacobian{
 		{Name: JacVolName, Cases: []JacobianCase{{Region: "All", Jacobian: "Vol"}}},
+		{Name: JacSurName, Cases: []JacobianCase{{Region: "All", Jacobian: "Sur"}}},
+	}
+}
+
+// ShellJacobians returns the volume + surface Jacobians for an infinite-shell study: the
+// shell region maps to GetDP's VolSphShell transform (which maps the exterior shell to
+// infinity so a finite mesh represents open space), while every other region keeps the plain
+// volume Jacobian. The shell case MUST precede the "All" catch-all — GetDP applies the first
+// matching region. Radii and center are in SI metres (the deck is pure SI). See ADR #25.
+func ShellJacobians(shellGroup string, rInt, rExt float64, center [3]float64) []Jacobian {
+	transform := fmt.Sprintf("VolSphShell{%v, %v, %v, %v, %v}", rInt, rExt, center[0], center[1], center[2])
+	return []Jacobian{
+		{Name: JacVolName, Cases: []JacobianCase{
+			{Region: shellGroup, Jacobian: transform},
+			{Region: "All", Jacobian: "Vol"},
+		}},
 		{Name: JacSurName, Cases: []JacobianCase{{Region: "All", Jacobian: "Sur"}}},
 	}
 }

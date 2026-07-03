@@ -39,6 +39,17 @@ type DeckInput struct {
 	Materials map[int]Material // by volume tag
 	Order     int              // element order (integration rule selection)
 	Transient *TransientSpec   // nil for static studies
+	Shell     *ShellTransform  // nil unless the study is truncated by an infinite shell (#25)
+}
+
+// ShellTransform tells a physics writer this study is truncated by an infinite spherical shell:
+// the shell's physical volume tag and the metres-space sphere the VolSphShell map is built on.
+// When set, the volume Jacobian maps the shell region to VolSphShell (exterior→infinity) and
+// every other region to plain Vol. Radii and center are SI metres (the deck is pure SI).
+type ShellTransform struct {
+	VolumeTag  int
+	Rint, Rext float64
+	Center     [3]float64
 }
 
 // TransientSpec is the theta-scheme time grid of a transient study.
@@ -101,6 +112,16 @@ func WriterFor(kind PhysicsKind) (PhysicsWriter, error) {
 // user-entered name is syntactically safe.
 func volGroupName(tag int) string { return fmt.Sprintf("Vol%d", tag) }
 func surGroupName(tag int) string { return fmt.Sprintf("Sur%d", tag) }
+
+// jacobiansFor picks the deck's Jacobians: the plain volume+surface pair for a confined or
+// padded-box study, or the shell-aware pair (shell region → VolSphShell) when the study is
+// truncated by an infinite spherical shell (#25).
+func jacobiansFor(in DeckInput) []pro.Jacobian {
+	if in.Shell == nil {
+		return pro.StandardJacobians()
+	}
+	return pro.ShellJacobians(volGroupName(in.Shell.VolumeTag), in.Shell.Rint, in.Shell.Rext, in.Shell.Center)
+}
 
 // regionGroups builds the shared Group block skeleton: one group per volume, one per
 // bound surface, a VolAll union, and a DomAll union of everything (nodal spaces need
