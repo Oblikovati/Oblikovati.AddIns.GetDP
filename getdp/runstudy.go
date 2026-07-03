@@ -46,6 +46,7 @@ type runInputs struct {
 	physics     femmodel.PhysicsKind
 	solver      femmodel.SolverObject
 	mesh        femmodel.MeshObject
+	air         femmodel.AirRegion
 	regions     []femmodel.RegionObject
 	constraints []femmodel.ConstraintObject
 }
@@ -56,10 +57,15 @@ func (e *Engine) snapshotRun() runInputs {
 	defer e.mu.Unlock()
 	s := e.analysis.Active()
 	return runInputs{
-		physics: s.Solver.Physics, solver: s.Solver, mesh: s.Mesh,
+		physics: s.Solver.Physics, solver: s.Solver, mesh: s.Mesh, air: s.Solver.Air,
 		regions:     append([]femmodel.RegionObject(nil), s.Regions()...),
 		constraints: append([]femmodel.ConstraintObject(nil), s.Constraints()...),
 	}
+}
+
+// needsAir reports whether this run meshes a surrounding air region.
+func (in runInputs) needsAir() bool {
+	return femmodel.NeedsAir(in.physics) && in.air.Mode == femmodel.AirAutomaticBox
 }
 
 // RunStudyOnHost runs the active study end-to-end against the live host: mesh →
@@ -129,12 +135,30 @@ func (e *Engine) meshStudy(ctx context.Context, bins solverBinaries, in runInput
 	if in.mesh.SecondOrder {
 		opts.Order = SecondOrderTet
 	}
-	mesh, err := e.meshSolidBodies(ctx, bins, opts, solids, dir)
+	mesh, err := e.meshForStudy(ctx, bins, opts, solids, in, dir)
 	if err != nil {
 		os.RemoveAll(dir)
 		return "", nil, nil, err
 	}
 	return dir, mesh, solids, nil
+}
+
+// meshForStudy picks the mesher: a conformal part+air run for air-needing studies (single
+// part body), the per-body solid mesher otherwise.
+func (e *Engine) meshForStudy(ctx context.Context, bins solverBinaries, opts MeshOptions, solids []wire.BodyInfo, in runInputs, dir string) (*TetMesh, error) {
+	if !in.needsAir() {
+		return e.meshSolidBodies(ctx, bins, opts, solids, dir)
+	}
+	if len(solids) != 1 {
+		return nil, fmt.Errorf("automatic air region supports a single part body (found %d); "+
+			"model the extra bodies into one, or assign a body the Air role", len(solids))
+	}
+	surface, err := e.pullSurface(solids[0].Index)
+	if err != nil {
+		return nil, err
+	}
+	spec := AirSpec{PaddingFactor: in.air.PaddingFactor}
+	return NewGmshMesher(bins.gmsh).MeshWithAir(ctx, surface, spec, opts, dir)
 }
 
 // buildStudyDeck binds faces, resolves specs, and generates the deck; the returned
@@ -145,9 +169,17 @@ func (e *Engine) buildStudyDeck(in runInputs, mesh *TetMesh, solids []wire.BodyI
 		return "", DeckOutputs{}, nil, err
 	}
 	regions := newRegionTable(bodyNames(solids))
+	if in.needsAir() {
+		regions.addAirVolume()
+	}
 	rc := &ResolveContext{Model: &SolveModel{}, Mesh: mesh, Groups: groups, Regions: regions}
 	if err := resolveSpecs(specsFrom(in.constraints), rc); err != nil {
 		return "", DeckOutputs{}, nil, err
+	}
+	if in.needsAir() {
+		if err := bindFarField(rc, mesh); err != nil {
+			return "", DeckOutputs{}, nil, err
+		}
 	}
 	writer, err := WriterFor(PhysicsKind(in.physics))
 	if err != nil {
@@ -216,6 +248,19 @@ func (e *Engine) meshOnly() {
 	e.reportStatus(msg)
 }
 
+// bindFarField binds the air box's outer boundary and pins it to zero potential — the
+// far-field reference the electrostatic field decays toward.
+func bindFarField(rc *ResolveContext, mesh *TetMesh) error {
+	tag, err := rc.Regions.BindOuterBoundary(mesh)
+	if err != nil {
+		return err
+	}
+	rc.Model.BoundPotentials = append(rc.Model.BoundPotentials, BoundPotential{
+		Kind: KindVoltage, RegionTag: tag, Name: "FarField", Value: 0,
+	})
+	return nil
+}
+
 // constraintFaceKeys unions every constraint's face keys.
 func constraintFaceKeys(cs []femmodel.ConstraintObject) []string {
 	var keys []string
@@ -253,11 +298,15 @@ func specsFrom(cs []femmodel.ConstraintObject) []ConstraintSpec {
 
 // materialsByTag maps each physical volume tag to its region's material: a body takes
 // the material of the region listing it, else the material of the catch-all region
-// (nil Bodies). The mesh parameter is unused today but pins the seam where per-body
-// material resolution will read host-assigned materials (M4+).
+// (nil Bodies). The generated air volume is always vacuum (εr = 1) regardless of the
+// part's dielectric, so it is never resolved through the part's region list.
 func materialsByTag(in runInputs, regions *RegionTable, _ *TetMesh) map[int]Material {
 	out := make(map[int]Material, len(regions.Volumes))
 	for _, v := range regions.Volumes {
+		if v.Body == airBodyIndex {
+			out[v.Tag] = Material{Epsilon: 1}
+			continue
+		}
 		out[v.Tag] = materialForBody(in.regions, v.Body)
 	}
 	return out
@@ -291,7 +340,7 @@ func containsBody(list []int, b int) bool {
 }
 
 func toMaterial(m femmodel.MaterialProps) Material {
-	return Material{Sigma: m.Sigma, K: m.K, Rho: m.Rho, Cp: m.Cp}
+	return Material{Sigma: m.Sigma, K: m.K, Rho: m.Rho, Cp: m.Cp, Epsilon: m.Epsilon}
 }
 
 // meshOrderOf maps mesh settings onto the integration-rule order.

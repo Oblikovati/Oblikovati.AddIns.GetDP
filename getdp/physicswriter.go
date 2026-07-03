@@ -17,15 +17,17 @@ const (
 	PhysicsElectrokinetics  PhysicsKind = "electrokinetics"
 	PhysicsThermalSteady    PhysicsKind = "thermal"
 	PhysicsThermalTransient PhysicsKind = "thermal transient"
+	PhysicsElectrostatics   PhysicsKind = "electrostatics"
 )
 
 // Material carries the volumetric properties the M3 physics read. Values are SI (the
 // deck is pure SI; the MSH writer already put the geometry in metres).
 type Material struct {
-	Sigma float64 // electrical conductivity, S/m
-	K     float64 // thermal conductivity, W/(m·K)
-	Rho   float64 // density, kg/m³ (transient thermal)
-	Cp    float64 // specific heat, J/(kg·K) (transient thermal)
+	Sigma   float64 // electrical conductivity, S/m
+	K       float64 // thermal conductivity, W/(m·K)
+	Rho     float64 // density, kg/m³ (transient thermal)
+	Cp      float64 // specific heat, J/(kg·K) (transient thermal)
+	Epsilon float64 // relative permittivity εr (electrostatics), 1 = vacuum/air
 }
 
 // DeckInput is everything a physics writer needs to build a deck: the region table
@@ -81,6 +83,7 @@ var physicsWriters = map[PhysicsKind]PhysicsWriter{
 	PhysicsElectrokinetics:  ElectrokineticsWriter{},
 	PhysicsThermalSteady:    ThermalWriter{},
 	PhysicsThermalTransient: ThermalWriter{Transient: true},
+	PhysicsElectrostatics:   ElectrostaticsWriter{},
 }
 
 // WriterFor returns the deck writer for a physics kind, failing loudly on a kind no
