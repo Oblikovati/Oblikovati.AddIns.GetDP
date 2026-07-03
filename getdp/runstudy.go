@@ -10,6 +10,7 @@ import (
 
 	"oblikovati.org/api/wire"
 	"oblikovati.org/getdp/getdp/femmodel"
+	"oblikovati.org/getdp/getdp/pro"
 )
 
 // StudyResult is what one solved study reports back to the UI surfaces.
@@ -49,6 +50,7 @@ type runInputs struct {
 	air         femmodel.AirRegion
 	regions     []femmodel.RegionObject
 	constraints []femmodel.ConstraintObject
+	coils       []femmodel.CoilObject
 }
 
 // snapshotRun copies the active study's run-relevant state.
@@ -60,6 +62,7 @@ func (e *Engine) snapshotRun() runInputs {
 		physics: s.Solver.Physics, solver: s.Solver, mesh: s.Mesh, air: s.Solver.Air,
 		regions:     append([]femmodel.RegionObject(nil), s.Regions()...),
 		constraints: append([]femmodel.ConstraintObject(nil), s.Constraints()...),
+		coils:       append([]femmodel.CoilObject(nil), s.Coils()...),
 	}
 }
 
@@ -120,7 +123,7 @@ func (e *Engine) stageStudy(ctx context.Context, in runInputs) (*stagedStudy, er
 		os.RemoveAll(dir)
 		return nil, err
 	}
-	if err := stageFiles(dir, deckText, mesh, regions); err != nil {
+	if err := stageFiles(dir, deckText, mesh, regions, outs.Solver); err != nil {
 		os.RemoveAll(dir)
 		return nil, err
 	}
@@ -196,6 +199,7 @@ func (e *Engine) buildStudyDeck(in runInputs, mesh *TetMesh, solids []wire.BodyI
 	deck, outs, err := writer.BuildDeck(DeckInput{
 		Regions: regions, Model: rc.Model, Materials: materialsByTag(in, regions, mesh),
 		Order: meshOrderOf(in.mesh), Transient: transientOf(in), Shell: transform,
+		Probes: coilCenterProbes(rc.Model.Coils), Solver: linearSolverOf(in),
 	})
 	if err != nil {
 		return "", DeckOutputs{}, nil, err
@@ -221,12 +225,45 @@ func (e *Engine) resolveStudyRegions(in runInputs, mesh *TetMesh, solids []wire.
 	if err := resolveSpecs(specsFrom(in.constraints), rc); err != nil {
 		return nil, nil, err
 	}
+	if err := resolveCoils(in.coils, rc, regions); err != nil {
+		return nil, nil, err
+	}
 	if in.needsAir() {
-		if err := bindFarField(rc, mesh); err != nil {
+		if err := bindFarField(rc, mesh, in.physics); err != nil {
 			return nil, nil, err
 		}
 	}
 	return regions, rc, nil
+}
+
+// resolveCoils maps each coil's bodies onto their physical volume tags, converting the
+// centre to SI metres (the deck is pure SI), and appends one Coil per coil-body to the
+// model — the source regions the magnetostatics writer drives with an azimuthal js.
+func resolveCoils(coils []femmodel.CoilObject, rc *ResolveContext, regions *RegionTable) error {
+	for _, c := range coils {
+		for _, body := range c.Bodies {
+			tag, err := regions.VolumeTag(body)
+			if err != nil {
+				return fmt.Errorf("coil %q: %w", c.Name, err)
+			}
+			rc.Model.Coils = append(rc.Model.Coils, Coil{
+				RegionTag: tag, Axis: c.Axis, CurrentDensity: c.CurrentDensity,
+				Center: [3]float64{c.Center[0] * modelUnitM, c.Center[1] * modelUnitM, c.Center[2] * modelUnitM},
+			})
+		}
+	}
+	return nil
+}
+
+// coilCenterProbes puts one |B| point probe at each coil's centre (SI metres) — the
+// physically meaningful field at the coil centre, and the on-axis point the solenoid /
+// Biot-Savart oracles read.
+func coilCenterProbes(coils []Coil) []FieldProbe {
+	var probes []FieldProbe
+	for i, c := range coils {
+		probes = append(probes, FieldProbe{Name: fmt.Sprintf("coil%d", i+1), Point: c.Center})
+	}
+	return probes
 }
 
 // shellTransform builds the deck's VolSphShell parameters (SI metres) from the meshed shell
@@ -249,10 +286,18 @@ func shellTransform(shell *shellGeometry, regions *RegionTable) (*ShellTransform
 	}, nil
 }
 
-// stageFiles writes study.pro and study.msh into the workdir.
-func stageFiles(dir, deckText string, mesh *TetMesh, regions *RegionTable) error {
+// stageFiles writes study.pro, study.msh and (for physics that configure the SPARSKIT
+// linear solver, i.e. ungauged magnetostatics) solver.par into the workdir. GetDP reads
+// solver.par from its run directory automatically (LinAlg_SPARSKIT), so no CLI flag is
+// needed.
+func stageFiles(dir, deckText string, mesh *TetMesh, regions *RegionTable, solver *pro.SolverParams) error {
 	if err := os.WriteFile(filepath.Join(dir, "study.pro"), []byte(deckText), 0o644); err != nil {
 		return fmt.Errorf("write study.pro: %w", err)
+	}
+	if solver != nil {
+		if err := os.WriteFile(filepath.Join(dir, "solver.par"), []byte(solver.Render()), 0o644); err != nil {
+			return fmt.Errorf("write solver.par: %w", err)
+		}
 	}
 	return writeFile(filepath.Join(dir, "study.msh"), func(f *os.File) error {
 		return writeMSH(f, mesh, regions)
@@ -302,16 +347,21 @@ func (e *Engine) meshOnly() {
 	e.reportStatus(msg)
 }
 
-// bindFarField binds the air box's outer boundary and pins it to zero potential — the
-// far-field reference the electrostatic field decays toward.
-func bindFarField(rc *ResolveContext, mesh *TetMesh) error {
+// bindFarField binds the air/shell outer boundary as the far-field reference and records
+// its tag on the model. Electrostatics additionally pins it to zero potential (the field
+// decays toward V=0); magnetostatics uses the tag for the a×n=0 edge constraint (the
+// writer reads FarFieldTag), so no scalar potential is appended there.
+func bindFarField(rc *ResolveContext, mesh *TetMesh, physics femmodel.PhysicsKind) error {
 	tag, err := rc.Regions.BindOuterBoundary(mesh)
 	if err != nil {
 		return err
 	}
-	rc.Model.BoundPotentials = append(rc.Model.BoundPotentials, BoundPotential{
-		Kind: KindVoltage, RegionTag: tag, Name: "FarField", Value: 0,
-	})
+	rc.Model.FarFieldTag = tag
+	if physics == femmodel.PhysicsElectrostatics {
+		rc.Model.BoundPotentials = append(rc.Model.BoundPotentials, BoundPotential{
+			Kind: KindVoltage, RegionTag: tag, Name: "FarField", Value: 0,
+		})
+	}
 	return nil
 }
 
@@ -358,7 +408,7 @@ func materialsByTag(in runInputs, regions *RegionTable, _ *TetMesh) map[int]Mate
 	out := make(map[int]Material, len(regions.Volumes))
 	for _, v := range regions.Volumes {
 		if v.Body == airBodyIndex || v.Body == shellBodyIndex {
-			out[v.Tag] = Material{Epsilon: 1} // generated air / infinite shell are always vacuum
+			out[v.Tag] = Material{Epsilon: 1, Mu: 1} // generated air / infinite shell are always vacuum
 			continue
 		}
 		out[v.Tag] = materialForBody(in.regions, v.Body)
@@ -394,7 +444,7 @@ func containsBody(list []int, b int) bool {
 }
 
 func toMaterial(m femmodel.MaterialProps) Material {
-	return Material{Sigma: m.Sigma, K: m.K, Rho: m.Rho, Cp: m.Cp, Epsilon: m.Epsilon}
+	return Material{Sigma: m.Sigma, K: m.K, Rho: m.Rho, Cp: m.Cp, Epsilon: m.Epsilon, Mu: m.Mu}
 }
 
 // meshOrderOf maps mesh settings onto the integration-rule order.
@@ -403,6 +453,30 @@ func meshOrderOf(m femmodel.MeshObject) int {
 		return 2
 	}
 	return 1
+}
+
+// linearSolverOf builds the deck's SPARSKIT solver.par knobs from the study's TP-12 settings,
+// for the physics that solve iteratively (ungauged magnetostatics). Returns nil otherwise, so
+// the direct-solving physics leave no solver.par and the writer keeps its own defaults if a
+// knob is unset.
+func linearSolverOf(in runInputs) *pro.SolverParams {
+	if in.physics != femmodel.PhysicsMagnetostatics {
+		return nil
+	}
+	def := pro.DefaultMagnetostaticsSolver()
+	p := def
+	if ls := in.solver.Linear; ls.Tolerance > 0 || ls.MaxIter > 0 || ls.Preconditioner > 0 {
+		if ls.Tolerance > 0 {
+			p.Tolerance = ls.Tolerance
+		}
+		if ls.MaxIter > 0 {
+			p.MaxIter = ls.MaxIter
+		}
+		if ls.Preconditioner > 0 {
+			p.Preconditioner = ls.Preconditioner
+		}
+	}
+	return &p
 }
 
 // transientOf builds the theta grid for transient studies (nil otherwise).

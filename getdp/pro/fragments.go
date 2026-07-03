@@ -74,6 +74,26 @@ func NodalSpace(name, support, constraint string) FunctionSpace {
 	}
 }
 
+// EdgeSpace returns the H(curl) Form1 edge space the vector-potential magnetostatics
+// formulation builds on: one BF_Edge (Whitney-1) family over the support, with
+// coefficients pinned by the named far-field constraint (a×n = 0 on the outer boundary).
+// It is UNGAUGED — no tree-cotree (EdgesOfTreeIn) entry — so the assembled curl-curl
+// system is consistent-singular; a Krylov solver recovers the gauge-invariant field
+// B = curl a (the gauge, #40, only makes a itself unique). Mirrors the 3D branch of
+// GetDP's Lib_Magnetostatics_a_phi.pro.
+func EdgeSpace(name, support, constraint string) FunctionSpace {
+	return FunctionSpace{
+		Name: name, Type: "Form1",
+		BasisFunctions: []BasisFunction{{
+			Name: "se", Coef: "ae", Func: "BF_Edge",
+			Support: support, Entity: "EdgesOf[All]",
+		}},
+		SpaceConstraints: []SpaceConstraint{{
+			Coef: "ae", EntityType: "EdgesOf", Constraint: constraint,
+		}},
+	}
+}
+
 // TerminalNodalSpace returns the H(grad) nodal space with TERMINAL global quantities —
 // the pattern every scalar-potential physics uses to read exact terminal fluxes
 // (electrode current, anchored heat rate) from the assembled system instead of

@@ -49,6 +49,21 @@ type ResolveContext struct {
 type SolveModel struct {
 	BoundPotentials []BoundPotential
 	BoundFluxes     []BoundFlux
+	Coils           []Coil // current-source volumes (magnetostatics)
+	FarFieldTag     int    // the auto air/shell outer-boundary surface tag (0 = none); a=0 for magnetics
+}
+
+// Coil is a resolved current-source volume: a body carrying a prescribed azimuthal
+// current density about an axis (magnetostatics). The current flows in the φ direction
+// around Axis through Center; because js is tangent to every face of a body-of-revolution
+// coil (js·n = 0) and divergence-free, the discrete source stays consistent with the
+// ungauged edge-element system — no RHS projection needed (#27). Axis is a unit vector;
+// Center and the derived geometry are SI metres (the deck is pure SI).
+type Coil struct {
+	RegionTag      int
+	Axis           [3]float64
+	Center         [3]float64
+	CurrentDensity float64 // azimuthal current-density magnitude J0, A/m²
 }
 
 // BoundPotential is a resolved Dirichlet-type condition: a scalar value (electric

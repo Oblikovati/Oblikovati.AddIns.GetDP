@@ -8,12 +8,13 @@ import "fmt"
 // this package stays dependency-free; the engine converts by value).
 type PhysicsKind string
 
-// Shipped physics (M3). Later milestones append here AND in the engine registry.
+// Shipped physics (M3+). Later milestones append here AND in the engine registry.
 const (
 	PhysicsElectrokinetics  PhysicsKind = "electrokinetics"
 	PhysicsThermalSteady    PhysicsKind = "thermal"
 	PhysicsThermalTransient PhysicsKind = "thermal transient"
 	PhysicsElectrostatics   PhysicsKind = "electrostatics"
+	PhysicsMagnetostatics   PhysicsKind = "magnetostatics"
 )
 
 // Study is one simulation study: physics + solver settings, mesh settings, body
@@ -27,9 +28,11 @@ type Study struct {
 	Mesh        MeshObject
 	regions     []RegionObject
 	constraints []ConstraintObject
+	coils       []CoilObject
 
 	nextRegion     int
 	nextConstraint int
+	nextCoil       int
 }
 
 // newStudy builds a study with the physics' defaults and one all-bodies region.
@@ -53,6 +56,31 @@ func (s *Study) Regions() []RegionObject { return s.regions }
 
 // Constraints returns the constraint intents in creation order.
 func (s *Study) Constraints() []ConstraintObject { return s.constraints }
+
+// Coils returns the current-source coils in creation order (magnetostatics).
+func (s *Study) Coils() []CoilObject { return s.coils }
+
+// AddCoil appends a current-source coil and returns its id.
+func (s *Study) AddCoil(c CoilObject) string {
+	s.nextCoil++
+	c.ID = fmt.Sprintf("%s/coil%d", s.id, s.nextCoil)
+	if c.Name == "" {
+		c.Name = fmt.Sprintf("Coil %d", s.nextCoil)
+	}
+	s.coils = append(s.coils, c)
+	return c.ID
+}
+
+// RemoveCoil deletes a coil by id.
+func (s *Study) RemoveCoil(id string) error {
+	for i := range s.coils {
+		if s.coils[i].ID == id {
+			s.coils = append(s.coils[:i], s.coils[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("no coil with id %q in study %q", id, s.name)
+}
 
 // AddRegion appends a region (defaults to the physics' default material) and returns
 // its id. bodies lists merged-mesh body indexes; nil means "all bodies".
@@ -166,10 +194,11 @@ func (s *Study) SetPhysics(kind PhysicsKind) []ConstraintObject {
 func (s *Study) clone(id, name string) *Study {
 	cp := &Study{
 		id: id, name: name, Solver: s.Solver, Mesh: s.Mesh,
-		nextRegion: s.nextRegion, nextConstraint: s.nextConstraint,
+		nextRegion: s.nextRegion, nextConstraint: s.nextConstraint, nextCoil: s.nextCoil,
 	}
 	cp.regions = append(cp.regions, s.regions...)
 	cp.constraints = append(cp.constraints, s.constraints...)
+	cp.coils = append(cp.coils, s.coils...)
 	return cp
 }
 

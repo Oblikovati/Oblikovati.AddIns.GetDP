@@ -10,6 +10,12 @@ func defaultSolver(kind PhysicsKind) SolverObject {
 	if kind == PhysicsThermalTransient {
 		s.TMax, s.DT, s.Theta, s.Initial = 60, 1, 1, 293.15
 	}
+	if kind == PhysicsMagnetostatics {
+		// Ungauged edge-element GMRES defaults (mirrors pro.DefaultMagnetostaticsSolver; kept
+		// as literals so this model package stays free of the deck-AST dependency): diagonal
+		// preconditioner (8, safe on the singular operator), 1e-8 residual, generous cap.
+		s.Linear = LinearSolver{Tolerance: 1e-8, MaxIter: 5000, Preconditioner: 8}
+	}
 	return s
 }
 
@@ -26,6 +32,10 @@ func defaultMaterial(kind PhysicsKind) MaterialProps {
 		// A unit-permittivity dielectric by default (the demo raises εr); the generated
 		// air region is vacuum (εr = 1) too.
 		return MaterialProps{Name: "Dielectric", Epsilon: 1}
+	case PhysicsMagnetostatics:
+		// Non-magnetic by default (copper coil / air, μr = 1); the demo raises μr for an
+		// iron core.
+		return MaterialProps{Name: "Copper", Sigma: 5.96e7, Mu: 1}
 	default:
 		return MaterialProps{Name: "Aluminium", Sigma: 3.5e7, K: 205, Rho: 2700, Cp: 900}
 	}

@@ -12,15 +12,16 @@ import (
 // milestone; the writer registry below is the single dispatch point.
 type PhysicsKind string
 
-// M3 physics kinds.
+// M3 physics kinds; M4 added electrostatics, M5 magnetostatics.
 const (
 	PhysicsElectrokinetics  PhysicsKind = "electrokinetics"
 	PhysicsThermalSteady    PhysicsKind = "thermal"
 	PhysicsThermalTransient PhysicsKind = "thermal transient"
 	PhysicsElectrostatics   PhysicsKind = "electrostatics"
+	PhysicsMagnetostatics   PhysicsKind = "magnetostatics"
 )
 
-// Material carries the volumetric properties the M3 physics read. Values are SI (the
+// Material carries the volumetric properties the shipped physics read. Values are SI (the
 // deck is pure SI; the MSH writer already put the geometry in metres).
 type Material struct {
 	Sigma   float64 // electrical conductivity, S/m
@@ -28,6 +29,7 @@ type Material struct {
 	Rho     float64 // density, kg/m³ (transient thermal)
 	Cp      float64 // specific heat, J/(kg·K) (transient thermal)
 	Epsilon float64 // relative permittivity εr (electrostatics), 1 = vacuum/air
+	Mu      float64 // relative permeability μr (magnetostatics), 1 = vacuum/air/copper
 }
 
 // DeckInput is everything a physics writer needs to build a deck: the region table
@@ -36,10 +38,20 @@ type Material struct {
 type DeckInput struct {
 	Regions   *RegionTable
 	Model     *SolveModel
-	Materials map[int]Material // by volume tag
-	Order     int              // element order (integration rule selection)
-	Transient *TransientSpec   // nil for static studies
-	Shell     *ShellTransform  // nil unless the study is truncated by an infinite shell (#25)
+	Materials map[int]Material  // by volume tag
+	Order     int               // element order (integration rule selection)
+	Transient *TransientSpec    // nil for static studies
+	Shell     *ShellTransform   // nil unless the study is truncated by an infinite shell (#25)
+	Probes    []FieldProbe      // point field-value probes (magnetostatics oracle / coil-centre field)
+	Solver    *pro.SolverParams // linear-solver knobs (TP-12); nil = the physics writer's defaults
+}
+
+// FieldProbe is one point at which a physics writer prints the field value to its own
+// Table file (SI metres). Magnetostatics prints |B| there — the on-axis probe the
+// solenoid/Biot-Savart oracles read, and the physically meaningful field at a coil centre.
+type FieldProbe struct {
+	Name  string
+	Point [3]float64
 }
 
 // ShellTransform tells a physics writer this study is truncated by an infinite spherical shell:
@@ -65,6 +77,7 @@ type DeckOutputs struct {
 	PostOps    []string
 	Fields     []FieldOutput
 	Tables     []TableOutput
+	Solver     *pro.SolverParams // non-nil = write a solver.par (SPARSKIT knobs) into the run dir
 }
 
 // FieldOutput is one .pos field map the deck prints.
@@ -95,6 +108,7 @@ var physicsWriters = map[PhysicsKind]PhysicsWriter{
 	PhysicsThermalSteady:    ThermalWriter{},
 	PhysicsThermalTransient: ThermalWriter{Transient: true},
 	PhysicsElectrostatics:   ElectrostaticsWriter{},
+	PhysicsMagnetostatics:   MagnetostaticsWriter{},
 }
 
 // WriterFor returns the deck writer for a physics kind, failing loudly on a kind no

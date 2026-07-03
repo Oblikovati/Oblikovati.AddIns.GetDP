@@ -12,6 +12,18 @@ type SolverObject struct {
 	// Air is the surrounding-domain configuration for physics that solve fields around the
 	// part (electrostatics and the EM family); zero-valued (AirNone) otherwise.
 	Air AirRegion
+	// Linear is the iterative-solver configuration TP-12 edits (ungauged magnetostatics and
+	// the magnetodynamic family use it); zero-valued for the physics that solve directly.
+	Linear LinearSolver
+}
+
+// LinearSolver is the SPARSKIT iterative-solver configuration (TP-12): the target relative
+// residual, the iteration cap, and the SPARSKIT preconditioner code (8 = diagonal, the safe
+// default on the ungauged curl-curl operator). Zero fields fall back to the writer defaults.
+type LinearSolver struct {
+	Tolerance      float64
+	MaxIter        int
+	Preconditioner int
 }
 
 // MeshObject holds the study's global mesh settings (TP-11).
@@ -37,6 +49,20 @@ type MaterialProps struct {
 	Rho     float64 // density, kg/m³
 	Cp      float64 // specific heat, J/(kg·K)
 	Epsilon float64 // relative permittivity εr (electrostatics), 1 = vacuum/air
+	Mu      float64 // relative permeability μr (magnetostatics), 1 = vacuum/air/copper
+}
+
+// CoilObject is one current-source region (TP-9): the bodies that make up the coil, the
+// azimuthal current density it carries (A/m²) and the axis it winds about. The current
+// flows in the φ direction around Axis through Center (both in model units; the engine
+// converts the geometry to SI). Used by magnetostatics and the magnetodynamics family.
+type CoilObject struct {
+	ID             string
+	Name           string
+	Bodies         []int
+	Axis           [3]float64 // winding axis (unit direction)
+	Center         [3]float64 // a point on the axis (model units)
+	CurrentDensity float64    // azimuthal current-density magnitude J0, A/m² (SI)
 }
 
 // ConstraintKind mirrors the engine's constraint kinds (value-identical strings).
