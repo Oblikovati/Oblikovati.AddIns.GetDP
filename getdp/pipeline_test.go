@@ -113,15 +113,23 @@ func TestPipelineBoxHostToGetDPVolumeOracle(t *testing.T) {
 // the seeded region table.
 func meshAndBindBox(t *testing.T, e *Engine, bins solverBinaries, dir string) (*TetMesh, *RegionTable, *ResolveContext) {
 	t.Helper()
+	return meshAndBind(t, e, bins, dir, []string{inletFaceKey, outletFaceKey}, 0.8)
+}
+
+// meshAndBind runs the host-facing half of the pipeline on any single-body fixture: solid
+// mesh at the given size, then binds the named faces. It is the shared harness the box and
+// coaxial oracles reuse (the coaxial one exercises curved-electrode binding, #61).
+func meshAndBind(t *testing.T, e *Engine, bins solverBinaries, dir string, faceKeys []string, size float64) (*TetMesh, *RegionTable, *ResolveContext) {
+	t.Helper()
 	solids, err := e.solidBodies()
 	if err != nil {
 		t.Fatalf("solid bodies: %v", err)
 	}
-	mesh, err := e.meshSolidBodies(context.Background(), bins, MeshOptions{Size: 0.8, Order: FirstOrderTet}, solids, dir)
+	mesh, err := e.meshSolidBodies(context.Background(), bins, MeshOptions{Size: size, Order: FirstOrderTet}, solids, dir)
 	if err != nil {
 		t.Fatalf("mesh bodies: %v", err)
 	}
-	groups, err := e.buildFaceGroups([]string{inletFaceKey, outletFaceKey}, mesh, solids)
+	groups, err := e.buildFaceGroups(faceKeys, mesh, solids)
 	if err != nil {
 		t.Fatalf("bind faces: %v", err)
 	}

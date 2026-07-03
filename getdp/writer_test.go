@@ -47,10 +47,19 @@ func TestThermalRequiresAnchor(t *testing.T) {
 // 20×1×1 cm ⇒ L = 0.2 m, A = 1e-4 m² in the SI deck.
 func solveBoxStudy(t *testing.T, kind PhysicsKind, mat Material, specs []ConstraintSpec, tr *TransientSpec) string {
 	t.Helper()
+	return solveConfinedStudy(t, NewEngine(newBoxHost()), []string{inletFaceKey, outletFaceKey}, 0.8, kind, mat, specs, tr)
+}
+
+// solveConfinedStudy is the generalized confined-field oracle harness: mesh the engine's
+// single body at the given size, bind the named electrode faces, run the physics writer, and
+// solve on real GetDP. "Confined" = no air region; unbound faces get the natural zero-flux
+// Neumann BC. Returns the study directory for result parsing.
+func solveConfinedStudy(t *testing.T, e *Engine, faceKeys []string, size float64,
+	kind PhysicsKind, mat Material, specs []ConstraintSpec, tr *TransientSpec) string {
+	t.Helper()
 	bins := requireSolver(t)
-	e := NewEngine(newBoxHost())
 	dir := t.TempDir()
-	mesh, regions, rc := meshAndBindBox(t, e, bins, dir)
+	mesh, regions, rc := meshAndBind(t, e, bins, dir, faceKeys, size)
 	if err := resolveSpecs(specs, rc); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
