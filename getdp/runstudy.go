@@ -68,6 +68,12 @@ func (in runInputs) needsAir() bool {
 	return femmodel.NeedsAir(in.physics) && in.air.Mode == femmodel.AirAutomaticBox
 }
 
+// needsShell reports whether the automatic air region is truncated by an infinite spherical
+// shell (mapping the exterior to infinity) rather than a plain padded box (#25).
+func (in runInputs) needsShell() bool {
+	return in.needsAir() && in.air.Truncation == femmodel.TruncationInfiniteShell
+}
+
 // RunStudyOnHost runs the active study end-to-end against the live host: mesh →
 // physical groups → generated .pro → GetDP solve → .pos/table parse → flood plot.
 func (e *Engine) RunStudyOnHost(ctx context.Context) (*StudyResult, error) {
@@ -105,11 +111,11 @@ func (e *Engine) stageStudy(ctx context.Context, in runInputs) (*stagedStudy, er
 		return nil, err
 	}
 	e.showMonitor("meshing…", nil)
-	dir, mesh, solids, err := e.meshStudy(ctx, bins, in)
+	dir, mesh, solids, shell, err := e.meshStudy(ctx, bins, in)
 	if err != nil {
 		return nil, err
 	}
-	deckText, outs, regions, err := e.buildStudyDeck(in, mesh, solids)
+	deckText, outs, regions, err := e.buildStudyDeck(in, mesh, solids, shell)
 	if err != nil {
 		os.RemoveAll(dir)
 		return nil, err
@@ -121,78 +127,126 @@ func (e *Engine) stageStudy(ctx context.Context, in runInputs) (*stagedStudy, er
 	return &stagedStudy{bins: bins, dir: dir, mesh: mesh, outs: outs}, nil
 }
 
-// meshStudy discovers bodies and volume-meshes them in a fresh workdir.
-func (e *Engine) meshStudy(ctx context.Context, bins solverBinaries, in runInputs) (string, *TetMesh, []wire.BodyInfo, error) {
+// meshStudy discovers bodies and volume-meshes them in a fresh workdir. The returned shell
+// geometry is non-nil only for infinite-shell studies (the deck's VolSphShell parameters).
+func (e *Engine) meshStudy(ctx context.Context, bins solverBinaries, in runInputs) (string, *TetMesh, []wire.BodyInfo, *shellGeometry, error) {
 	solids, err := e.solidBodies()
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
 	dir, err := os.MkdirTemp("", "getdp-study-*")
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("create study workdir: %w", err)
+		return "", nil, nil, nil, fmt.Errorf("create study workdir: %w", err)
 	}
 	opts := MeshOptions{Size: in.mesh.SizeModelUnits, Order: FirstOrderTet}
 	if in.mesh.SecondOrder {
 		opts.Order = SecondOrderTet
 	}
-	mesh, err := e.meshForStudy(ctx, bins, opts, solids, in, dir)
+	mesh, shell, err := e.meshForStudy(ctx, bins, opts, solids, in, dir)
 	if err != nil {
 		os.RemoveAll(dir)
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
-	return dir, mesh, solids, nil
+	return dir, mesh, solids, shell, nil
 }
 
-// meshForStudy picks the mesher: a conformal part+air run for air-needing studies (single
-// part body), the per-body solid mesher otherwise.
-func (e *Engine) meshForStudy(ctx context.Context, bins solverBinaries, opts MeshOptions, solids []wire.BodyInfo, in runInputs, dir string) (*TetMesh, error) {
+// meshForStudy picks the mesher: the infinite-shell run or the padded-box run for air-needing
+// studies (single part body), the per-body solid mesher otherwise.
+func (e *Engine) meshForStudy(ctx context.Context, bins solverBinaries, opts MeshOptions, solids []wire.BodyInfo, in runInputs, dir string) (*TetMesh, *shellGeometry, error) {
 	if !in.needsAir() {
-		return e.meshSolidBodies(ctx, bins, opts, solids, dir)
+		mesh, err := e.meshSolidBodies(ctx, bins, opts, solids, dir)
+		return mesh, nil, err
 	}
 	if len(solids) != 1 {
-		return nil, fmt.Errorf("automatic air region supports a single part body (found %d); "+
+		return nil, nil, fmt.Errorf("automatic air region supports a single part body (found %d); "+
 			"model the extra bodies into one, or assign a body the Air role", len(solids))
 	}
 	surface, err := e.pullSurface(solids[0].Index)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if in.needsShell() {
+		spec := ShellSpec{Rint: in.air.ShellRint, Rext: in.air.ShellRext}
+		mesh, geom, err := NewGmshMesher(bins.gmsh).MeshWithInfiniteShell(ctx, surface, spec, opts, dir)
+		if err != nil {
+			return nil, nil, err
+		}
+		return mesh, &geom, nil
 	}
 	spec := AirSpec{PaddingFactor: in.air.PaddingFactor}
-	return NewGmshMesher(bins.gmsh).MeshWithAir(ctx, surface, spec, opts, dir)
+	mesh, err := NewGmshMesher(bins.gmsh).MeshWithAir(ctx, surface, spec, opts, dir)
+	return mesh, nil, err
 }
 
 // buildStudyDeck binds faces, resolves specs, and generates the deck; the returned
 // region table is what stageFiles feeds the MSH writer (both sides share its tags).
-func (e *Engine) buildStudyDeck(in runInputs, mesh *TetMesh, solids []wire.BodyInfo) (string, DeckOutputs, *RegionTable, error) {
-	groups, err := e.buildFaceGroups(constraintFaceKeys(in.constraints), mesh, solids)
+func (e *Engine) buildStudyDeck(in runInputs, mesh *TetMesh, solids []wire.BodyInfo, shell *shellGeometry) (string, DeckOutputs, *RegionTable, error) {
+	regions, rc, err := e.resolveStudyRegions(in, mesh, solids)
 	if err != nil {
 		return "", DeckOutputs{}, nil, err
-	}
-	regions := newRegionTable(bodyNames(solids))
-	if in.needsAir() {
-		regions.addAirVolume()
-	}
-	rc := &ResolveContext{Model: &SolveModel{}, Mesh: mesh, Groups: groups, Regions: regions}
-	if err := resolveSpecs(specsFrom(in.constraints), rc); err != nil {
-		return "", DeckOutputs{}, nil, err
-	}
-	if in.needsAir() {
-		if err := bindFarField(rc, mesh); err != nil {
-			return "", DeckOutputs{}, nil, err
-		}
 	}
 	writer, err := WriterFor(PhysicsKind(in.physics))
 	if err != nil {
 		return "", DeckOutputs{}, nil, err
 	}
+	transform, err := shellTransform(shell, regions)
+	if err != nil {
+		return "", DeckOutputs{}, nil, err
+	}
 	deck, outs, err := writer.BuildDeck(DeckInput{
 		Regions: regions, Model: rc.Model, Materials: materialsByTag(in, regions, mesh),
-		Order: meshOrderOf(in.mesh), Transient: transientOf(in),
+		Order: meshOrderOf(in.mesh), Transient: transientOf(in), Shell: transform,
 	})
 	if err != nil {
 		return "", DeckOutputs{}, nil, err
 	}
 	return deck.Render(), outs, regions, nil
+}
+
+// resolveStudyRegions builds the region table (bodies + generated air + infinite shell) and
+// resolves the constraint specs and far-field binding into a solve model.
+func (e *Engine) resolveStudyRegions(in runInputs, mesh *TetMesh, solids []wire.BodyInfo) (*RegionTable, *ResolveContext, error) {
+	groups, err := e.buildFaceGroups(constraintFaceKeys(in.constraints), mesh, solids)
+	if err != nil {
+		return nil, nil, err
+	}
+	regions := newRegionTable(bodyNames(solids))
+	if in.needsAir() {
+		regions.addAirVolume()
+	}
+	if in.needsShell() {
+		regions.addShellVolume()
+	}
+	rc := &ResolveContext{Model: &SolveModel{}, Mesh: mesh, Groups: groups, Regions: regions}
+	if err := resolveSpecs(specsFrom(in.constraints), rc); err != nil {
+		return nil, nil, err
+	}
+	if in.needsAir() {
+		if err := bindFarField(rc, mesh); err != nil {
+			return nil, nil, err
+		}
+	}
+	return regions, rc, nil
+}
+
+// shellTransform builds the deck's VolSphShell parameters (SI metres) from the meshed shell
+// geometry and the registered shell volume tag; nil for non-shell studies.
+func shellTransform(shell *shellGeometry, regions *RegionTable) (*ShellTransform, error) {
+	if shell == nil {
+		return nil, nil
+	}
+	tag, err := regions.VolumeTag(shellBodyIndex)
+	if err != nil {
+		return nil, fmt.Errorf("infinite-shell deck: %w", err)
+	}
+	return &ShellTransform{
+		VolumeTag: tag,
+		Rint:      shell.RInt * modelUnitM,
+		Rext:      shell.RExt * modelUnitM,
+		Center: [3]float64{
+			shell.Center[0] * modelUnitM, shell.Center[1] * modelUnitM, shell.Center[2] * modelUnitM,
+		},
+	}, nil
 }
 
 // stageFiles writes study.pro and study.msh into the workdir.
@@ -237,7 +291,7 @@ func (e *Engine) meshOnly() {
 		return
 	}
 	e.showMonitor("meshing…", nil)
-	dir, mesh, _, err := e.meshStudy(context.Background(), bins, in)
+	dir, mesh, _, _, err := e.meshStudy(context.Background(), bins, in)
 	if err != nil {
 		e.reportStatus("GetDP mesh failed: " + err.Error())
 		return
@@ -303,8 +357,8 @@ func specsFrom(cs []femmodel.ConstraintObject) []ConstraintSpec {
 func materialsByTag(in runInputs, regions *RegionTable, _ *TetMesh) map[int]Material {
 	out := make(map[int]Material, len(regions.Volumes))
 	for _, v := range regions.Volumes {
-		if v.Body == airBodyIndex {
-			out[v.Tag] = Material{Epsilon: 1}
+		if v.Body == airBodyIndex || v.Body == shellBodyIndex {
+			out[v.Tag] = Material{Epsilon: 1} // generated air / infinite shell are always vacuum
 			continue
 		}
 		out[v.Tag] = materialForBody(in.regions, v.Body)
