@@ -17,6 +17,6 @@
 // replace); CI injects the equivalent replaces via .github/actions/siblings.
 module oblikovati.org/getdp
 
-go 1.24.0
+go 1.27.0
 
-require oblikovati.org/api v0.105.0
+require oblikovati.org/api v0.153.1

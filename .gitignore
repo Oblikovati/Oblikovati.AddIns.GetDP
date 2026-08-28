@@ -47,3 +47,6 @@ go.work.sum
 
 # GetDP cmake configure writes this doc artifact into the CWD of the build invocation
 cmake_options.texi
+
+# Local git worktrees used for isolated feature/fix branches.
+.worktrees/
