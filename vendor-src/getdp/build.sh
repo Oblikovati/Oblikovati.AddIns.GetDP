@@ -35,6 +35,7 @@ echo "### [1/2] LAPACK 3.8.0 (reference BLAS+LAPACK) -> liblapack.a"
 echo "### [2/2] GetDP 3.5.0 (SPARSKIT + Arpack, no PETSc) -> getdp"
 cmake -S "$HERE" -B "$OUT" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
   -DCMAKE_Fortran_COMPILER="$FC" \
   -DGETDP_RELEASE=1 \
   -DDEFAULT=0 \
